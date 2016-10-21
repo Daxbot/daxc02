@@ -2,7 +2,7 @@
 # objects will be automatically built from the corresponding .c file -
 # no need to list the source files explicitly.
 
-TX1_SSH = ubuntu@10.100.0.89
+TX1_SSH = ubuntu@10.100.0.74
 
 obj-m += daxc02.o
 
