@@ -27,12 +27,14 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+#include <linux/of_graph.h>
 
 #include <media/camera_common.h>
 #include <stdbool.h>
 #include <linux/kernel.h>
 
 #define MT9M021_DEBUG
+
 
 /***************************************************
 		MT9M021 Defines
@@ -1326,59 +1328,18 @@ static const struct media_entity_operations daxc02_media_ops = {
 		I2C Driver Setup
 ****************************************************/
 
-static struct of_device_id daxc02_of_match[] = {
-	{ .compatible = "daxc02", },
-	{ },
-};
-
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 {
-	struct device_node *node = client->dev.of_node;
 	struct camera_common_pdata *board_priv_pdata;
-	const struct of_device_id *match;
-	int err;
 
-	if (!node) return NULL;
-
-	match = of_match_device(daxc02_of_match, &client->dev);
-	if (!match)
-        {
-		dev_err(&client->dev, "Failed to find matching dt id\n");
-		return NULL;
-	}
-
-	board_priv_pdata = devm_kzalloc(&client->dev,
-			   sizeof(*board_priv_pdata), GFP_KERNEL);
-
+	board_priv_pdata = devm_kzalloc(&client->dev, sizeof(*board_priv_pdata), GFP_KERNEL);
         if (!board_priv_pdata) return NULL;
 
-	err = camera_common_parse_clocks(client, board_priv_pdata);
-	if (err)
-        {
-		dev_err(&client->dev, "Failed to find clocks\n");
-		goto error;
-	}
-
-	err = of_property_read_string(node, "avdd-reg",
-			&board_priv_pdata->regulators.avdd);
-	if (err)
-        {
-		dev_err(&client->dev, "avdd-reg not in DT\n");
-		goto error;
-	}
-	err = of_property_read_string(node, "iovdd-reg",
-			&board_priv_pdata->regulators.iovdd);
-	if (err)
-        {
-		dev_err(&client->dev, "iovdd-reg not in DT\n");
-		goto error;
-        }
+        board_priv_pdata->mclk_name = "cam_mclk1";
+        board_priv_pdata->regulators.avdd = "vana";
+        board_priv_pdata->regulators.iovdd = "vif";
 
 	return board_priv_pdata;
-
-error:
-	devm_kfree(&client->dev, board_priv_pdata);
-	return NULL;
 }
 
 static int daxc02_ctrls_init(struct daxc02 *priv)
@@ -1439,7 +1400,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 {
 	struct camera_common_data *common_data;
         struct mt9m021_platform_data *mt9m021_pdata = client->dev.platform_data;
-	struct device_node *node = client->dev.of_node;
 	struct daxc02 *priv;
         struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	char debugfs_name[10];
@@ -1447,17 +1407,13 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	pr_info("daxc02: probing v4l2 sensor.\n");
 
-	if (!IS_ENABLED(CONFIG_OF) || !node) return -EINVAL;
-
 	common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
-
         if (!common_data) return -ENOMEM;
 
 	priv = devm_kzalloc(&client->dev,
 			    sizeof(struct daxc02) + sizeof(struct v4l2_ctrl *) *
 			    ARRAY_SIZE(ctrl_config_list),
 			    GFP_KERNEL);
-
         if (!priv) return -ENOMEM;
 
         priv->pdata = daxc02_parse_dt(client);
@@ -1473,6 +1429,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
             return -EIO;
         }
 
+	common_data->numlanes = 4;
+	common_data->csi_port = 2;
 	common_data->ops		= &daxc02_common_ops;
 	common_data->ctrl_handler	= &priv->ctrl_handler;
 	common_data->i2c_client		= client;
@@ -1509,12 +1467,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 	err = daxc02_power_get(priv);
 	if (err) return err;
 
-	err = camera_common_parse_ports(client, common_data);
-	if (err)
-        {
-		dev_err(&client->dev, "Failed to find port info\n");
-		return err;
-	}
 	sprintf(debugfs_name, "daxc02_%c", common_data->csi_port + 'a');
 	dev_dbg(&client->dev, "%s: name %s\n", __func__, debugfs_name);
 	camera_common_create_debugfs(common_data, debugfs_name);
@@ -1543,7 +1495,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 	err = v4l2_async_register_subdev(priv->subdev);
 	if (err) return err;
 
-	dev_dbg(&client->dev, "Detected DAX-CO2\n");
+	pr_info("daxc02: probe successful.\n");
 	return 0;
 }
 
@@ -1551,7 +1503,6 @@ static int daxc02_remove(struct i2c_client *client)
 {
 	struct camera_common_data *s_data = to_camera_common_data(client);
 	struct daxc02 *priv = (struct daxc02 *)s_data->priv;
-
 	v4l2_async_unregister_subdev(priv->subdev);
 
         #if defined(CONFIG_MEDIA_CONTROLLER)
@@ -1574,11 +1525,33 @@ static struct i2c_driver daxc02_i2c_driver = {
 	.driver = {
 		.name = "daxc02",
 		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(daxc02_of_match),
 	},
 	.probe = daxc02_probe,
 	.remove = daxc02_remove,
 	.id_table = daxc02_id,
+};
+
+static int mt9m021_set_xclk(struct v4l2_subdev *subdev, int hz)
+{
+	return 0;
+}
+
+static int mt9m021_reset(struct v4l2_subdev *subdev, int active)
+{
+	return 0;
+}
+
+static struct mt9m021_platform_data mt9m021_pdata = {
+	.set_xclk	= mt9m021_set_xclk,
+	.reset		= mt9m021_reset,
+	.ext_freq	= MT9M021_EXT_FREQ,
+	.target_freq	= 74250000,
+	.version        = MT9M021_COLOR_VERSION,
+};
+
+static struct i2c_board_info daxc02_camera_i2c_device = {
+	I2C_BOARD_INFO("daxc02", MT9M021_I2C_ADDR),
+	.platform_data = &mt9m021_pdata,
 };
 
 
@@ -1586,8 +1559,36 @@ static struct i2c_driver daxc02_i2c_driver = {
 		Module Setup
 ****************************************************/
 
-module_i2c_driver(daxc02_i2c_driver);
-MODULE_DEVICE_TABLE(of, daxc02_of_match);
+static struct i2c_client *daxc02_client;
+
+static int __init daxc02_module_init(void)
+{
+	int retval;
+	struct i2c_adapter *adapter;
+
+	pr_info("daxc02: initializing driver.\n");
+
+	retval = i2c_add_driver(&daxc02_i2c_driver);
+	if(retval) return retval;
+
+	adapter = i2c_get_adapter(6);
+	if (!adapter) return -EINVAL;
+
+	daxc02_client = i2c_new_device(adapter, &daxc02_camera_i2c_device);
+	if (!daxc02_client) return -EINVAL;
+
+	return 0;
+}
+
+static void __exit daxc02_module_exit(void)
+{
+	pr_info("daxc02: shutting down driver.\n");
+        i2c_unregister_device(daxc02_client);
+	i2c_del_driver(&daxc02_i2c_driver);
+}
+module_init(daxc02_module_init);
+module_exit(daxc02_module_exit);
+
 MODULE_DEVICE_TABLE(i2c, daxc02_id);
 MODULE_DESCRIPTION("Nova Dynamics DAX-C02 dual MIPI camera driver");
 MODULE_AUTHOR("Wilkins White <ww@novadynamics.com>");
