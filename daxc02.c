@@ -1440,6 +1440,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 	common_data->numctrls		= ARRAY_SIZE(ctrl_config_list);
 	common_data->def_width		= MT9M021_PIXEL_ARRAY_WIDTH;
 	common_data->def_height		= MT9M021_PIXEL_ARRAY_HEIGHT;
+        common_data->def_mode           = 0;
 	common_data->fmt_width		= common_data->def_width;
 	common_data->fmt_height		= common_data->def_height;
 	common_data->def_clk_freq	= MT9M021_TARGET_FREQ;
