@@ -25,9 +25,9 @@
 
 //#include <linux/seq_file.h>
 #include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/of_gpio.h>
-#include <linux/of_graph.h>
+//#include <linux/of_device.h>
+//#include <linux/of_gpio.h>
+//#include <linux/of_graph.h>
 
 #include <media/camera_common.h>
 #include <stdbool.h>
@@ -1521,10 +1521,16 @@ static const struct i2c_device_id daxc02_id[] = {
 	{ }
 };
 
+static struct of_device_id daxc02_of_match[] = {
+        { .compatible = "nova,daxc02", },
+        { },
+};
+
 static struct i2c_driver daxc02_i2c_driver = {
 	.driver = {
 		.name = "daxc02",
 		.owner = THIS_MODULE,
+                .of_match_table = of_match_ptr(daxc02_of_match),
 	},
 	.probe = daxc02_probe,
 	.remove = daxc02_remove,
@@ -1559,6 +1565,8 @@ static struct i2c_board_info daxc02_camera_i2c_device = {
 		Module Setup
 ****************************************************/
 
+module_i2c_driver(daxc02_i2c_driver);
+/*
 static struct i2c_client *daxc02_client;
 
 static int __init daxc02_module_init(void)
@@ -1588,7 +1596,9 @@ static void __exit daxc02_module_exit(void)
 }
 module_init(daxc02_module_init);
 module_exit(daxc02_module_exit);
+*/
 
+MODULE_DEVICE_TABLE(of, daxc02_of_match);
 MODULE_DEVICE_TABLE(i2c, daxc02_id);
 MODULE_DESCRIPTION("Nova Dynamics DAX-C02 dual MIPI camera driver");
 MODULE_AUTHOR("Wilkins White <ww@novadynamics.com>");
