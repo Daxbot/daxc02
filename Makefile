@@ -27,8 +27,8 @@ PWD   := $(shell pwd)
 default:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
-copy:
-	scp *.ko $(TX1_SSH):~/Drivers
+copy: default
+	scp *.ko $(TX1_SSH):/lib/modules/3.10.96-tegra+/kernel/drivers/media/i2c/
 
 clean:
 	$(RM) *.o *.mod.c modules.order Module.symvers
