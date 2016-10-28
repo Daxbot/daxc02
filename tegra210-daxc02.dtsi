@@ -38,6 +38,15 @@
 	};
 
 	host1x {
+                vi {
+                        ports {
+                                port@0 {
+                                        daxc02_vi_in0: endpoint {
+                                                remote-endpoint = <&daxc02_out0>;
+                                        };
+                                };
+                        };
+                };
 		i2c@546c0000 {
 			daxc02@0e {
 				compatible = "nova,daxc02";
@@ -185,7 +194,19 @@
 					max_exp_time = "672";
 					embedded_metadata_height = "0";
 				};
+                                ports {
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
 
+                                        port@0 {
+                                                reg = <0>;
+                                                daxc02_out0: endpoint {
+                                                        csi-port = <2>;
+                                                        bus-width = <4>;
+                                                        remote-endpoint = <&daxc02_vi_in0>;
+                                                };
+                                        };
+                                };
 			};
 
 		};
