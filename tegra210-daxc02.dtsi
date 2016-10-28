@@ -212,10 +212,14 @@
     };
 
     regulators {
-        /* Enable power supply for HDMI extension board */
-
         /* VDD_SYS_EN */
         en_vdd_cam: regulator@5 {
+            regulator-boot-on;
+            regulator-always-on;
+        };
+
+        /* CAM_VDD_2V8_EN */
+        en_vdd_cam_hv_2v8: regulator@206 {
             regulator-boot-on;
             regulator-always-on;
         };
