@@ -526,6 +526,9 @@ static int daxc02_power_on(struct camera_common_data *s_data)
 	if (pw->iovdd) err = regulator_enable(pw->iovdd);
 	if (err) goto daxc02_iovdd_fail;
 
+	if (pw->dvdd) err = regulator_enable(pw->dvdd);
+	if (err) goto daxc02_dvdd_fail;
+
 	usleep_range(1, 2);
 	//if (pw->pwdn_gpio) daxc02_gpio_set(priv, pw->pwdn_gpio, 1);
 
@@ -551,6 +554,9 @@ static int daxc02_power_on(struct camera_common_data *s_data)
 
 	pw->state = SWITCH_ON;
 	return 0;
+
+daxc02_dvdd_fail:
+	regulator_disable(pw->iovdd);
 
 daxc02_iovdd_fail:
 	regulator_disable(pw->avdd);
@@ -581,6 +587,7 @@ static int daxc02_power_off(struct camera_common_data *s_data)
 
 	if (pw->iovdd) regulator_disable(pw->iovdd);
 	if (pw->avdd) regulator_disable(pw->avdd);
+	if (pw->dvdd) regulator_disable(pw->dvdd);
 
 	return 0;
 }
@@ -595,8 +602,11 @@ static int daxc02_power_put(struct daxc02 *priv)
 
 	if (likely(pw->iovdd)) regulator_put(pw->iovdd);
 
+        if (likely(pw->dvdd)) regulator_put(pw->dvdd);
+
 	pw->avdd = NULL;
 	pw->iovdd = NULL;
+        pw->dvdd = NULL;
 
 	return 0;
 }
@@ -629,6 +639,8 @@ static int daxc02_power_get(struct daxc02 *priv)
 	err |= camera_common_regulator_get(priv->i2c_client, &pw->avdd, pdata->regulators.avdd);
 	/* IO 1.8v */
 	err |= camera_common_regulator_get(priv->i2c_client, &pw->iovdd, pdata->regulators.iovdd);
+	/* 1.2v */
+	err |= camera_common_regulator_get(priv->i2c_client, &pw->dvdd, pdata->regulators.dvdd);
 
 	pw->state = SWITCH_OFF;
 	return err;
@@ -1348,7 +1360,7 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 	struct device_node *node = client->dev.of_node;
 	struct camera_common_pdata *board_priv_pdata;
 	const struct of_device_id *match;
-	int gpio;
+	//int gpio;
 	int err;
 
 	if (!node)
@@ -1371,6 +1383,7 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 		goto error;
 	}
 
+	/*
 	gpio = of_get_named_gpio(node, "pwdn-gpios", 0);
 	if (gpio < 0) {
 		dev_err(&client->dev, "pwdn gpios not in DT\n");
@@ -1380,11 +1393,11 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 
 	gpio = of_get_named_gpio(node, "reset-gpios", 0);
 	if (gpio < 0) {
-		/* reset-gpio is not needed */
 		dev_dbg(&client->dev, "reset gpios not in DT\n");
 		gpio = 0;
 	}
 	board_priv_pdata->reset_gpio = (unsigned int)gpio;
+	*/
 
 	board_priv_pdata->use_cam_gpio =
 		of_property_read_bool(node, "cam,use-cam-gpio");
@@ -1395,10 +1408,18 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 		dev_err(&client->dev, "avdd-reg not in DT\n");
 		goto error;
 	}
+
 	err = of_property_read_string(node, "iovdd-reg",
 			&board_priv_pdata->regulators.iovdd);
 	if (err) {
 		dev_err(&client->dev, "iovdd-reg not in DT\n");
+		goto error;
+	}
+
+	err = of_property_read_string(node, "dvdd-reg",
+			&board_priv_pdata->regulators.dvdd);
+	if (err) {
+		dev_err(&client->dev, "dvdd-reg not in DT\n");
 		goto error;
 	}
 
@@ -1611,8 +1632,8 @@ static struct i2c_driver daxc02_i2c_driver = {
 		Module Setup
 ****************************************************/
 
-//module_i2c_driver(daxc02_i2c_driver);
-
+module_i2c_driver(daxc02_i2c_driver);
+/*
 static struct i2c_client *daxc02_client;
 
 static struct mt9m021_platform_data mt9m021_pdata = {
@@ -1655,7 +1676,7 @@ static void __exit daxc02_module_exit(void)
 }
 module_init(daxc02_module_init);
 module_exit(daxc02_module_exit);
-
+*/
 MODULE_DEVICE_TABLE(of, daxc02_of_match);
 MODULE_DEVICE_TABLE(i2c, daxc02_id);
 MODULE_DESCRIPTION("Nova Dynamics DAX-C02 dual MIPI camera driver");
