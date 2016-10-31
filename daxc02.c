@@ -30,8 +30,9 @@
 #include <stdbool.h>
 #include <linux/kernel.h>
 
-#define MT9M021_DEBUG
+#include "tps22994.h"
 
+#define MT9M021_DEBUG
 
 /***************************************************
         MT9M021 Defines
@@ -260,6 +261,8 @@ struct daxc02 {
     struct mt9m021_pll_divs             *pll;
     int                                 power_count;
     enum v4l2_exposure_auto_type        autoexposure;
+
+    struct i2c_client                   *tps22994_client;
 
     struct v4l2_ctrl                    *ctrls[];
 };
@@ -528,7 +531,8 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     if (err) goto daxc02_dvdd_fail;
 
     usleep_range(1, 2);
-    //if (pw->pwdn_gpio) daxc02_gpio_set(priv, pw->pwdn_gpio, 1);
+
+    tps22994_power_up(priv->tps22994_client);
 
     /* a power on reset is generated after core power becomes stable */
     usleep_range(2000, 2010);
@@ -568,6 +572,8 @@ static int daxc02_power_off(struct camera_common_data *s_data)
         else pr_err("%s failed.\n", __func__);
         return err;
     }
+
+    tps22994_power_down(priv->tps22994_client);
 
     usleep_range(2000, 2010);
 
@@ -1494,9 +1500,10 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     struct camera_common_data *common_data;
-        struct mt9m021_platform_data *mt9m021_pdata = client->dev.platform_data;
+    struct mt9m021_platform_data *mt9m021_pdata = client->dev.platform_data;
     struct daxc02 *priv;
-        struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
+    struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
+    struct i2c_client *tps22994_client;
     char debugfs_name[10];
     int err;
 
@@ -1524,6 +1531,9 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         return -EIO;
     }
 
+    tps22994_client = i2c_new_device(adapter, &tps22994_board_info);
+    if (!tps22994_client) return -EINVAL;
+
     common_data->ops            = &daxc02_common_ops;
     common_data->ctrl_handler   = &priv->ctrl_handler;
     common_data->i2c_client     = client;
@@ -1538,7 +1548,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     common_data->fmt_height     = common_data->def_height;
     common_data->def_clk_freq   = MT9M021_TARGET_FREQ;
 
-    priv->i2c_client = client;
+    priv->tps22994_client       = tps22994_client;
+    priv->i2c_client            = client;
     priv->s_data                = common_data;
     priv->subdev                = &common_data->subdev;
     priv->subdev->dev           = &client->dev;
@@ -1603,6 +1614,9 @@ static int daxc02_remove(struct i2c_client *client)
 {
     struct camera_common_data *s_data = to_camera_common_data(client);
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
+
+    i2c_unregister_device(priv->tps22994_client);
+
     v4l2_async_unregister_subdev(priv->subdev);
 
     #if defined(CONFIG_MEDIA_CONTROLLER)

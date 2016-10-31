@@ -5,6 +5,7 @@
 TX1_SSH = ubuntu@10.100.0.74
 
 obj-m += daxc02.o
+obj-m += tps22994.o
 
 # Define cross compiler
 export DEVDIR :=/home/ww/l4t
@@ -16,11 +17,11 @@ export ARCH := arm64
 # KDIR is the location of the kernel source.  The current standard is
 # to link to the associated source tree from the directory containing
 # the compiled modules.
-KDIR := $(DEVDIR)/64_TX1/Linux_for_Tegra_64_tx1/sources/kernel_source
+KDIR  := $(DEVDIR)/64_TX1/Linux_for_Tegra_64_tx1/sources/kernel_source
 
 # PWD is the current working directory and the location of our module
 # source files.
-PWD := $(shell pwd)
+PWD   := $(shell pwd)
 
 # default is the default make target.  The rule here says to run make
 # with a working directory of the directory containing the kernel
