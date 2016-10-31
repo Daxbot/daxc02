@@ -31,6 +31,7 @@
 #include <linux/kernel.h>
 
 #include "tps22994.h"
+#include "mt9m021_mode_tbls.h"
 
 #define MT9M021_DEBUG
 
@@ -1533,17 +1534,21 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 
     tps22994_client = i2c_new_device(adapter, &tps22994_board_info);
     if (!tps22994_client) return -EINVAL;
+    tps22994_power_up(tps22994_client);
 
     common_data->ops            = &daxc02_common_ops;
     common_data->ctrl_handler   = &priv->ctrl_handler;
     common_data->i2c_client     = client;
+    common_data->frmfmt         = mt9m021_frmfmt;
+    common_data->colorfmt       = camera_common_find_datafmt(V4L2_MBUS_FMT_SRGGB12_1X12);
+    common_data->numfmts        = ARRAY_SIZE(mt9m021_frmfmt);
     common_data->power          = &priv->power;
     common_data->ctrls          = priv->ctrls;
     common_data->priv           = (void *)priv;
     common_data->numctrls       = ARRAY_SIZE(ctrl_config_list);
+    common_data->def_mode       = MT9M021_DEFAULT_MODE;
     common_data->def_width      = MT9M021_PIXEL_ARRAY_WIDTH;
     common_data->def_height     = MT9M021_PIXEL_ARRAY_HEIGHT;
-    common_data->def_mode       = 0;
     common_data->fmt_width      = common_data->def_width;
     common_data->fmt_height     = common_data->def_height;
     common_data->def_clk_freq   = MT9M021_TARGET_FREQ;
@@ -1554,8 +1559,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->subdev                = &common_data->subdev;
     priv->subdev->dev           = &client->dev;
     priv->s_data->dev           = &client->dev;
-
-    priv->subdev->flags        |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+    priv->group_hold_prev       = 0;
 
     priv->mt9m021_pdata         = mt9m021_pdata;
     priv->crop.width            = MT9M021_WINDOW_WIDTH_MAX;
@@ -1588,10 +1592,11 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     if (err) return err;
 
     priv->subdev->internal_ops = &mt9m021_subdev_internal_ops;
-    priv->subdev->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
-                   V4L2_SUBDEV_FL_HAS_EVENTS;
+    priv->subdev->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+    priv->subdev->flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
 
     #if defined(CONFIG_MEDIA_CONTROLLER)
+    pr_info("daxc02: initializing media entity.\n");
     priv->pad.flags = MEDIA_PAD_FL_SOURCE;
     priv->subdev->entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
     priv->subdev->entity.ops = &daxc02_media_ops;

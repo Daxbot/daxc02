@@ -4,8 +4,8 @@
 
 TX1_SSH = ubuntu@10.100.0.74
 
+obj-y += tps22994.o
 obj-m += daxc02.o
-obj-m += tps22994.o
 
 # Define cross compiler
 export DEVDIR :=/home/ww/l4t
