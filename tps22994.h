@@ -85,7 +85,7 @@
                 TPS22994 I2C Board Info
 *******************************************************************/
 
-struct i2c_board_info tps22994_board_info = {
+static struct i2c_board_info tps22994_board_info = {
         .type = "tps22994",
         .addr = TPS22994_I2C_ADDR,
     };
