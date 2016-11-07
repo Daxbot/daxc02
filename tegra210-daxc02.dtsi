@@ -19,15 +19,22 @@
 / {
     host1x {
         vi {
+            num-channels = <0x1>;
             ports {
-                port@0 { // CSI A
+                #address-cells = <0x1>;
+                #size-cells = <0x0>;
+
+                port@0 {
+                    reg = <0x0>;
                     status = "okay";
                     daxc02_vi_in0: endpoint {
-                        bus-width = <4>;
+                        status = "okay";
+                        csi-port = <0x0>;
+                        bus-width = <0x4>;
                         remote-endpoint = <&daxc02_out0>;
                     };
-                };
-            };
+                };      
+            };   
         };
         i2c@546c0000 {
             #address-cells = <1>;
@@ -58,9 +65,6 @@
                 avdd-reg = "vana";
                 iovdd-reg = "vif";
                 dvdd-reg = "vdig";
-
-                /* kernel device node */
-                devnode = "video0";
 
                 /* Defines number of frames to be dropped by driver internally after applying */
                 /* sensor crop settings. Some sensors send corrupt frames after applying */
@@ -180,14 +184,14 @@
                     embedded_metadata_height = "0";
                 };
                 ports {
-                    #address-cells = <1>;
-                    #size-cells = <0>;
+                    #address-cells = <0x1>;
+                    #size-cells = <0x0>;
 
                     port@0 {
-                        reg = <0>;
+                        reg = <0x0>;
                         daxc02_out0: endpoint {
-                            csi-port = <0>;
-                            bus-width = <4>;
+                            csi-port = <0x0>;
+                            bus-width = <0x4>;
                             remote-endpoint = <&daxc02_vi_in0>;
                         };
                     };
@@ -203,9 +207,17 @@
                 badge = "daxc02_master_mt9m021";
                 position = "front";
                 orientation = "1";
+                status = "okay";
                 drivernode0 {
                     pcl_id = "v4l2_sensor";
+                    devname = "daxc02 6-000e";
                     proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/daxc02@0e";
+                	status = "okay";
+                };
+                drivernode1 {
+                    status = "okay";
+                    pcl_id = "v4l2_focuser_stub";
+                    proc-device-tree = [00];
                 };
             };
         };

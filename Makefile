@@ -3,8 +3,9 @@
 # no need to list the source files explicitly.
 
 TX1_SSH = ubuntu@10.100.0.74
+TX1_DIR = /lib/modules/3.10.96-tegra/kernel/drivers/media/i2c
 
-obj-y += tps22994.o
+obj-m += tps22994.o
 obj-m += daxc02.o
 
 # Define cross compiler
@@ -30,7 +31,7 @@ default:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 copy: default
-	scp *.ko $(TX1_SSH):/lib/modules/3.10.96-tegra+/kernel/drivers/media/i2c/
+	scp *.ko $(TX1_SSH):$(TX1_DIR)
 
 clean:
 	$(RM) *.o *.mod.c modules.order Module.symvers
