@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <linux/kernel.h>
 
-#include "tps22994.h"
+//#include "tps22994.h"
 #include "mt9m021_mode_tbls.h"
 
 #define MT9M021_DEBUG
@@ -39,7 +39,7 @@
         MT9M021 Defines
 ****************************************************/
 
-#define MT9M021_I2C_ADDR                0x0e
+#define MT9M021_I2C_ADDR                0x10
 #define MT9M021_EXT_FREQ                20250000
 #define MT9M021_TARGET_FREQ             74250000
 
@@ -263,7 +263,7 @@ struct daxc02 {
     int                                 power_count;
     enum v4l2_exposure_auto_type        autoexposure;
 
-    struct i2c_client                   *tps22994_client;
+    //struct i2c_client                   *tps22994_client;
 
     struct v4l2_ctrl                    *ctrls[];
 };
@@ -519,6 +519,7 @@ static int daxc02_power_on(struct camera_common_data *s_data)
         return err;
     }
 
+
     /* sleeps calls in the sequence below are for internal device
      * signal propagation as specified by sensor vendor */
 
@@ -533,7 +534,7 @@ static int daxc02_power_on(struct camera_common_data *s_data)
 
     usleep_range(1, 2);
 
-    tps22994_power_up(priv->tps22994_client);
+    //tps22994_power_up(priv->tps22994_client);
 
     /* a power on reset is generated after core power becomes stable */
     usleep_range(2000, 2010);
@@ -574,7 +575,7 @@ static int daxc02_power_off(struct camera_common_data *s_data)
         return err;
     }
 
-    tps22994_power_down(priv->tps22994_client);
+    //tps22994_power_down(priv->tps22994_client);
 
     usleep_range(2000, 2010);
 
@@ -674,6 +675,10 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
         return ret;
     }
 
+    #ifdef MT9M021_DEBUG
+        pr_info("daxc02: read offset 0x%x from %x@i2c%d, result 0x%x%x\n", addr, client->addr, i2c_adapter_id(client->adapter), buf[0], buf[1]);
+    #endif
+
     return (buf[0] << 8) | buf[1];
 }
 
@@ -707,7 +712,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data
 
     /* i2c_transfer returns message length, but function should return 0 */
     ret = i2c_transfer(client->adapter, &msg, 1);
-    if (ret >= 0) return 0;
+    if (ret == 1) return 0;
 
     v4l_err(client, "Write failed at 0x%x error %d\n", addr, ret);
     return ret;
@@ -1288,8 +1293,8 @@ static struct v4l2_subdev_ops daxc02_subdev_ops = {
 static struct camera_common_sensor_ops daxc02_common_ops = {
     .power_on               = daxc02_power_on,
     .power_off              = daxc02_power_off,
-    .write_reg              = mt9m021_write_reg,
-    .read_reg               = mt9m021_read_reg,
+    //.write_reg              = mt9m021_write_reg,
+    //.read_reg               = mt9m021_read_reg,
 };
 
 
@@ -1299,11 +1304,8 @@ static struct camera_common_sensor_ops daxc02_common_ops = {
 static int mt9m021_registered(struct v4l2_subdev *sd)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct daxc02 *mt9m021 = container_of(i2c_get_clientdata(client), struct daxc02, subdev);
     int32_t data;
     int count = 0;
-
-    daxc02_power_on(mt9m021->s_data);
 
     /* Read out the chip version register */
     data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
@@ -1319,19 +1321,19 @@ static int mt9m021_registered(struct v4l2_subdev *sd)
     }
     dev_info(&client->dev, "Aptina MT9M021 detected at address 0x%02x\n", client->addr);
 
-    daxc02_power_off(mt9m021->s_data);
-
     return 0;
 }
 
 static int mt9m021_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-    return camera_common_s_power(sd, 1);
+    //return camera_common_s_power(sd, 1);
+    return 0;
 }
 
 static int mt9m021_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-    return camera_common_s_power(sd, 0);
+    //return camera_common_s_power(sd, 0);
+    return 0;
 }
 
 /*
@@ -1504,7 +1506,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     struct mt9m021_platform_data *mt9m021_pdata = client->dev.platform_data;
     struct daxc02 *priv;
     struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
-    struct i2c_client *tps22994_client;
+    //struct i2c_client *tps22994_client;
     char debugfs_name[10];
     int err;
 
@@ -1532,9 +1534,11 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         return -EIO;
     }
 
-    tps22994_client = i2c_new_device(adapter, &tps22994_board_info);
+    /*
+    tps22994_client = of_find_i2c_device_by_node()
     if (!tps22994_client) return -EINVAL;
     tps22994_power_up(tps22994_client);
+    */
 
     common_data->ops            = &daxc02_common_ops;
     common_data->ctrl_handler   = &priv->ctrl_handler;
@@ -1553,7 +1557,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     common_data->fmt_height     = common_data->def_height;
     common_data->def_clk_freq   = MT9M021_TARGET_FREQ;
 
-    priv->tps22994_client       = tps22994_client;
+    //priv->tps22994_client       = tps22994_client;
     priv->i2c_client            = client;
     priv->s_data                = common_data;
     priv->subdev                = &common_data->subdev;
@@ -1620,7 +1624,7 @@ static int daxc02_remove(struct i2c_client *client)
     struct camera_common_data *s_data = to_camera_common_data(client);
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
 
-    i2c_unregister_device(priv->tps22994_client);
+    //i2c_unregister_device(priv->tps22994_client);
 
     v4l2_async_unregister_subdev(priv->subdev);
 

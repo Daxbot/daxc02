@@ -3,7 +3,7 @@
 # no need to list the source files explicitly.
 
 TX1_SSH = ubuntu@10.100.0.74
-TX1_DIR = /lib/modules/3.10.96-tegra/kernel/drivers/media/i2c
+TX1_DIR = /lib/modules/3.10.96-tegra+/kernel/drivers/media/i2c
 
 obj-m += tps22994.o
 obj-m += daxc02.o

@@ -39,12 +39,17 @@
         i2c@546c0000 {
             #address-cells = <1>;
             #size-cells = <0>;
+            
+            tps22994@70 {
+            	compatible = "nova,tps22994";
+            	reg = <0x70>;
+            };
 
-            daxc02@0e {
+            daxc02@10 {
                 compatible = "nova,daxc02";
 
                 /* I2C device address */
-                reg = <0x0e>;
+                reg = <0x10>;
 
                 /* Physical dimensions of sensor */
                 physical_w = "10";
@@ -210,8 +215,7 @@
                 status = "okay";
                 drivernode0 {
                     pcl_id = "v4l2_sensor";
-                    devname = "daxc02 6-000e";
-                    proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/daxc02@0e";
+                    proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/daxc02@10";
                 	status = "okay";
                 };
                 drivernode1 {
@@ -241,7 +245,7 @@
             regulator-boot-on;
             regulator-always-on;
         };
-
+		
         /* CAM_VDD_1V2_EN */
         en_vdd_cam_1v2: regulator@209 {
             regulator-boot-on;

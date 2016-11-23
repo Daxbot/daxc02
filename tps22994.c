@@ -253,15 +253,15 @@ int tps22994_power_up(struct i2c_client *client)
     retval = tps22994_enable_channel(client, 2); // 2.8V PLL
     if(retval == 0)
     {
-        udelay(10);
+        usleep_range(10, 20);
         retval = tps22994_enable_channel(client, 3); // 2.8V Analog
         if(retval == 0)
         {
-            udelay(10);
+            usleep_range(10, 20);
             retval = tps22994_enable_channel(client, 1); // 1.8V
             if(retval == 0)
             {
-                udelay(10);
+                usleep_range(10, 20);
                 retval = tps22994_enable_channel(client, 4); // 3.3V Enable Clock
             }
         }
@@ -283,15 +283,15 @@ int tps22994_power_down(struct i2c_client *client)
     retval = tps22994_disable_channel(client, 1); // 1.8V
     if(retval == 0)
     {
-        udelay(10);
+        usleep_range(10, 20);
         retval = tps22994_disable_channel(client, 3); // 2.8V Analog
         if(retval == 0)
         {
-            udelay(10);
+            usleep_range(10, 20);
             retval = tps22994_disable_channel(client, 2); // 2.8V PLL
             if(retval == 0)
             {
-                udelay(10);
+                usleep_range(10, 20);
                 retval = tps22994_disable_channel(client, 4);
             }
         }
@@ -323,7 +323,7 @@ static int tps22994_probe(struct i2c_client *client,
         if(retval == 0)
         {
             pr_info("tps22994: wrote %X to R%d.", write_data, TPS22994_REG_CONTROL);
-            //retval = tps22994_power_up(client);
+            retval = tps22994_power_up(client);
         }
     }
 
@@ -348,6 +348,13 @@ static const struct i2c_device_id tps22994_id[] = {
     { }
 };
 
+/* Link to the device tree.
+ */
+static const struct of_device_id tps22994_of_match[] = {
+        { .compatible = "nova,tps22994", },
+        { },
+};
+
 /* Driver struct used to access all the other functions.
  */
 static struct i2c_driver tps22994_i2c_driver = {
@@ -365,7 +372,9 @@ static struct i2c_driver tps22994_i2c_driver = {
 *********************************************************************/
 
 module_i2c_driver(tps22994_i2c_driver);
+MODULE_DEVICE_TABLE(i2c, tps22994_id);
+MODULE_DEVICE_TABLE(of, tps22994_of_match);
 MODULE_DESCRIPTION("Texas Instruments TPS22994 Switch driver");
 MODULE_AUTHOR("Wilkins White <ww@novadynamics.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(i2c, tps22994_id);
+
