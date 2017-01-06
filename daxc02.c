@@ -1292,8 +1292,13 @@ static struct v4l2_subdev_core_ops daxc02_subdev_core_ops = {
 static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_mbus_code_enum *code)
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
-
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
+    if(!mt9m021)
+    {
+        dev_err(&client->dev, "unable to get platform data\n");
+        return -EFAULT;
+    }
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (code->pad || code->index) return -EINVAL;
 
@@ -1304,8 +1309,14 @@ static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh 
 static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_frame_size_enum *fse)
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
+    if(!mt9m021)
+    {
+        dev_err(&client->dev, "unable to get platform data\n");
+        return -EFAULT;
+    }
 
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (fse->index != 0 || fse->code != mt9m021->format.code) return -EINVAL;
 
@@ -1348,8 +1359,13 @@ static struct v4l2_rect * __mt9m021_get_pad_crop(struct daxc02 *mt9m021, struct 
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *fmt)
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
-
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
+    if(!mt9m021)
+    {
+        dev_err(&client->dev, "unable to get platform data\n");
+        return -EFAULT;
+    }
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     fmt->format = *__mt9m021_get_pad_format(mt9m021, fh, fmt->pad, fmt->which);
 
@@ -1359,13 +1375,19 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
     struct mt9m021_frame_size size;
     struct v4l2_mbus_framefmt *__format;
     struct v4l2_rect *__crop;
     unsigned int wratio;
     unsigned int hratio;
 
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+    if(!mt9m021)
+    {
+        dev_err(&client->dev, "unable to get platform data\n");
+        return -EFAULT;
+    }
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     __crop = __mt9m021_get_pad_crop(mt9m021, fh, format->pad, format->which);
     /* Clamp the width and height to avoid dividing by zero. */
@@ -1399,8 +1421,13 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
-
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
+    if(!mt9m021)
+    {
+        dev_err(&client->dev, "unable to get platform data\n");
+        return -EFAULT;
+    }
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     crop->rect = *__mt9m021_get_pad_crop(mt9m021, fh, crop->pad, crop->which);
 
@@ -1410,11 +1437,18 @@ static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
 static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
     struct v4l2_mbus_framefmt *__format;
     struct v4l2_rect *__crop;
     struct v4l2_rect rect;
 
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+    if(!mt9m021)
+    {
+        dev_err(&client->dev, "unable to get platform data\n");
+        return -EFAULT;
+    }
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     /* Clamp the crop rectangle boundaries and align them to a multiple of 2
     * pixels to ensure a GRBG Bayer pattern.
