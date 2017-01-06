@@ -5,14 +5,8 @@
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #include <linux/module.h>
-
-
-//#include <linux/ioctl.h>
-//#include <linux/types.h>
-//#include <linux/stat.h>
-//#include <linux/fcntl.h>
-
 #include "tps22994.h"
+
 
 /********************************************************************
         Power Switch Functions
@@ -269,7 +263,6 @@ int tps22994_power_up(struct i2c_client *client)
 
     return retval;
 }
-EXPORT_SYMBOL(tps22994_power_up);
 
 /* Follow the power down sequence defined in the LI-M021C-MIPI Camera datasheet.
  * Channel off order: 2, 3, 1, 4
@@ -299,7 +292,6 @@ int tps22994_power_down(struct i2c_client *client)
 
     return retval;
 }
-EXPORT_SYMBOL(tps22994_power_down);
 
 /********************************************************************
         I2C Driver Setup
@@ -323,7 +315,8 @@ static int tps22994_probe(struct i2c_client *client,
         if(retval == 0)
         {
             pr_info("tps22994: wrote %X to R%d.", write_data, TPS22994_REG_CONTROL);
-            retval = tps22994_power_up(client);
+            //retval = tps22994_power_up(client);
+            retval = tps22994_enable_channel(client, 0); // All Channels to see if the tps22994 is even needed
         }
     }
 

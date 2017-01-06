@@ -2,11 +2,13 @@
 # objects will be automatically built from the corresponding .c file -
 # no need to list the source files explicitly.
 
-TX1_SSH = ubuntu@10.100.0.74
-TX1_DIR = /lib/modules/3.10.96-tegra+/kernel/drivers/media/i2c
+TX1_SSH = ubuntu@10.100.0.69
+TX1_DIR = /lib/modules/3.10.96-nova+/kernel/drivers/media/i2c
 
 obj-m += tps22994.o
 obj-m += daxc02.o
+
+ccflags-y=-I/usr/include
 
 # Define cross compiler
 export DEVDIR :=/home/ww/l4t

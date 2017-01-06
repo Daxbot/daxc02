@@ -12,6 +12,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define MT9M021_DEBUG 1
+#define DEBUG 1
+
+#include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
@@ -32,8 +36,6 @@
 
 //#include "tps22994.h"
 #include "mt9m021_mode_tbls.h"
-
-#define MT9M021_DEBUG
 
 /***************************************************
         MT9M021 Defines
@@ -319,6 +321,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
     struct daxc02 *priv = container_of(ctrl->handler, struct daxc02, ctrl_handler);
     struct i2c_client *client = v4l2_get_subdevdata(priv->subdev);
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (priv->power.state == SWITCH_OFF) return 0;
 
@@ -409,6 +412,34 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             if(ret < 0) return ret;
             break;
 
+        case V4L2_CID_FRAME_LENGTH:
+            pr_err("%s: V4L2_CID_FRAME_LENGTH not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_COARSE_TIME:
+            pr_err("%s: V4L2_CID_COARSE_TIME not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_COARSE_TIME_SHORT:
+            pr_err("%s: V4L2_CID_COARSE_TIME_SHORT not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_GROUP_HOLD:
+            pr_err("%s: V4L2_CID_GROUP_HOLD not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_HDR_EN:
+            pr_err("%s: V4L2_CID_HDR_EN not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_OTP_DATA:
+            pr_err("%s: V4L2_CID_OTP_DATA not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_FUSE_ID:
+            pr_err("%s: V4L2_CID_FUSE_ID not implemented.\n", __func__);
+            break;
+
         default:
             pr_err("%s: unknown ctrl id.\n", __func__);
             return -EINVAL;
@@ -417,8 +448,31 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
     return ret;
 }
 
+static int daxc02_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+    struct daxc02 *priv = container_of(ctrl->handler, struct daxc02, ctrl_handler);
+    int err = 0;
+    struct i2c_client *client = v4l2_get_subdevdata(priv->subdev);
+    dev_dbg(&client->dev, "%s\n", __func__);
+
+    if (priv->power.state == SWITCH_OFF)
+        return 0;
+
+    switch (ctrl->id) {
+    case V4L2_CID_EEPROM_DATA:
+        break;
+
+    default:
+            pr_err("%s: unknown ctrl id.\n", __func__);
+            return -EINVAL;
+    }
+
+    return err;
+}
+
 static const struct v4l2_ctrl_ops daxc02_ctrl_ops = {
-    .s_ctrl        = daxc02_s_ctrl,
+    .g_volatile_ctrl    = daxc02_g_volatile_ctrl,
+    .s_ctrl             = daxc02_s_ctrl,
 };
 
 static struct v4l2_ctrl_config ctrl_config_list[] = {
@@ -433,7 +487,8 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max            = MT9M021_GLOBAL_GAIN_MAX,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
         .step           = 1,
-    }, {
+    },
+    {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_TEST_PATTERN,
         .type           = V4L2_CTRL_TYPE_MENU,
@@ -445,7 +500,8 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .flags          = 0,
         .menu_skip_mask = 0,
         .qmenu          = mt9m021_test_pattern_menu,
-    }, {
+    },
+    {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_GAIN_GREEN1,
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -455,7 +511,8 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
         .flags          = 0,
-    }, {
+    },
+    {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_GAIN_RED,
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -465,7 +522,8 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
         .flags          = 0,
-    }, {
+    },
+    {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_GAIN_BLUE,
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -475,7 +533,8 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
         .flags          = 0,
-    }, {
+    },
+    {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_GAIN_GREEN2,
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -485,7 +544,8 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
         .flags          = 0,
-    }, {
+    },
+    {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_ANALOG_GAIN,
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -495,6 +555,92 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .step           = 1,
         .def            = MT9M021_ANALOG_GAIN_DEF,
         .flags          = 0,
+    },
+    // Begin not implemented controls
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_FRAME_LENGTH,
+        .name = "Frame Length",
+        .type = V4L2_CTRL_TYPE_INTEGER,
+        .flags = V4L2_CTRL_FLAG_SLIDER,
+        .min = 0,
+        .max = 0x7fff,
+        .def = 0x07C0,
+        .step = 1,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_COARSE_TIME,
+        .name = "Coarse Time",
+        .type = V4L2_CTRL_TYPE_INTEGER,
+        .flags = V4L2_CTRL_FLAG_SLIDER,
+        .min = 0x0002,
+        .max = 0x7ff9,
+        .def = 0x7fba,
+        .step = 1,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_COARSE_TIME_SHORT,
+        .name = "Coarse Time Short",
+        .type = V4L2_CTRL_TYPE_INTEGER,
+        .flags = V4L2_CTRL_FLAG_SLIDER,
+        .min = 0x0002,
+        .max = 0x7ff9,
+        .def = 0x7fba,
+        .step = 1,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_GROUP_HOLD,
+        .name = "Group Hold",
+        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
+        .min = 0,
+        .max = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
+        .menu_skip_mask = 0,
+        .def = 0,
+        .qmenu_int = switch_ctrl_qmenu,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_HDR_EN,
+        .name = "HDR enable",
+        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
+        .min = 0,
+        .max = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
+        .menu_skip_mask = 0,
+        .def = 0,
+        .qmenu_int = switch_ctrl_qmenu,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_EEPROM_DATA,
+        .name = "EEPROM Data",
+        .type = V4L2_CTRL_TYPE_STRING,
+        .flags = V4L2_CTRL_FLAG_VOLATILE,
+        .min = 0,
+        .max = 2048,
+        .step = 2,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_OTP_DATA,
+        .name = "OTP Data",
+        .type = V4L2_CTRL_TYPE_STRING,
+        .flags = V4L2_CTRL_FLAG_READ_ONLY,
+        .min = 0,
+        .max = 1024,
+        .step = 2,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_FUSE_ID,
+        .name = "Fuse ID",
+        .type = V4L2_CTRL_TYPE_STRING,
+        .flags = V4L2_CTRL_FLAG_READ_ONLY,
+        .min = 0,
+        .max = 16,
+        .step = 2,
     },
 };
 
@@ -509,7 +655,9 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
 
-    dev_dbg(&priv->i2c_client->dev, "%s: power on\n", __func__);
+    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
+    return 0;
+    //TODO: set up regulators for timed turn on
 
     if (priv->pdata && priv->pdata->power_on)
     {
@@ -565,7 +713,9 @@ static int daxc02_power_off(struct camera_common_data *s_data)
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
 
-    dev_dbg(&priv->i2c_client->dev, "%s: power off\n", __func__);
+    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
+    return 0;
+    //TODO: set up regulators for timed turn off
 
     if (priv->pdata && priv->pdata->power_on)
     {
@@ -589,6 +739,7 @@ static int daxc02_power_off(struct camera_common_data *s_data)
 static int daxc02_power_put(struct daxc02 *priv)
 {
     struct camera_common_power_rail *pw = &priv->power;
+    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
 
     if (unlikely(!pw)) return -EFAULT;
 
@@ -613,6 +764,8 @@ static int daxc02_power_get(struct daxc02 *priv)
     const char *parentclk_name;
     struct clk *parent;
     int err = 0;
+
+    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
 
     mclk_name = priv->pdata->mclk_name ? priv->pdata->mclk_name : "cam_mclk1";
     pw->mclk = devm_clk_get(&priv->i2c_client->dev, mclk_name);
@@ -654,6 +807,8 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
     uint16_t __addr;
     uint16_t ret;
 
+    dev_dbg(&client->dev, "%s\n", __func__);
+
     /* 16 bit addressable register */
     __addr = cpu_to_be16(addr);
 
@@ -685,7 +840,9 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
 
 static inline int mt9m021_read_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t *val)
 {
-    *val = (uint8_t)mt9m021_read(s_data->i2c_client, addr);
+    struct i2c_client *client = s_data->i2c_client;
+    dev_dbg(&client->dev, "%s\n", __func__);
+    *val = (uint8_t)mt9m021_read(client, addr);
     return 0;
 }
 
@@ -695,6 +852,8 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data
     uint8_t buf[4];
     uint16_t __addr, __data;
     int ret;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     /* 16-bit addressable register */
 
@@ -721,7 +880,9 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data
 
 static inline int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t val)
 {
-    return mt9m021_write(s_data->i2c_client, addr, val);
+    struct i2c_client *client = s_data->i2c_client;
+    dev_dbg(&client->dev, "%s\n", __func__);
+    return mt9m021_write(client, addr, val);
 }
 
 /**
@@ -732,6 +893,8 @@ static inline int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t 
 static int mt9m021_sequencer_settings(struct i2c_client *client)
 {
     int i, ret;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     ret = mt9m021_write(client, MT9M021_SEQ_CTRL_PORT, 0x8000);
     if (ret < 0) return ret;
@@ -753,6 +916,8 @@ static int mt9m021_sequencer_settings(struct i2c_client *client)
 static int mt9m021_col_correction(struct i2c_client *client)
 {
     int ret;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     /* Disable Streaming */
     ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
@@ -789,6 +954,8 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
 {
     int ret;
     int i;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     ret = mt9m021_write(client, MT9M021_TEST_RAW_MODE, 0x0000);
     if (ret < 0) return ret;
@@ -830,7 +997,9 @@ static int mt9m021_pll_setup(struct i2c_client *client)
     int ret;
     int i;
     struct daxc02 *daxc02 = container_of(i2c_get_clientdata(client), struct daxc02, subdev);
-        struct mt9m021_platform_data *mt9m021 = daxc02->mt9m021_pdata;
+    struct mt9m021_platform_data *mt9m021 = daxc02->mt9m021_pdata;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     for (i = 0; i < ARRAY_SIZE(mt9m021_divs); i++)
     {
@@ -882,6 +1051,8 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
     int ret;
     int hratio;
     int vratio;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
 
     hratio = DIV_ROUND_CLOSEST(mt9m021->crop.width, mt9m021->format.width);
@@ -941,6 +1112,8 @@ static int mt9m021_is_streaming(struct i2c_client *client)
 {
     uint16_t streaming;
 
+    dev_dbg(&client->dev, "%s\n", __func__);
+
     streaming = mt9m021_read(client, MT9M021_RESET_REG);
     streaming = ( (streaming >> 2) & 0x0001);
 
@@ -953,6 +1126,8 @@ static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposu
     struct daxc02 *mt9m021 = container_of(i2c_get_clientdata(client), struct daxc02, subdev);
     int streaming;
     int ret = 0;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     /* Save the current streaming state. Used later to restore it */
     streaming = mt9m021_is_streaming(client);
@@ -1025,6 +1200,8 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     struct mt9m021_frame_size frame;
     int ret;
 
+    dev_dbg(&client->dev, "%s\n", __func__);
+
     if (!enable) return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
 
     /* soft reset */
@@ -1081,6 +1258,8 @@ static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status)
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
 
+    dev_dbg(&client->dev, "%s\n", __func__);
+
     *status = pw->state == SWITCH_ON;
     return 0;
 }
@@ -1114,6 +1293,8 @@ static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh 
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
 
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+
     if (code->pad || code->index) return -EINVAL;
 
     code->code = mt9m021->format.code;
@@ -1123,6 +1304,8 @@ static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh 
 static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_frame_size_enum *fse)
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
+
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
 
     if (fse->index != 0 || fse->code != mt9m021->format.code) return -EINVAL;
 
@@ -1136,6 +1319,7 @@ static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh
 
 static struct v4l2_mbus_framefmt * __mt9m021_get_pad_format(struct daxc02 *mt9m021, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which)
 {
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
     switch (which)
     {
         case V4L2_SUBDEV_FORMAT_TRY:
@@ -1149,6 +1333,7 @@ static struct v4l2_mbus_framefmt * __mt9m021_get_pad_format(struct daxc02 *mt9m0
 
 static struct v4l2_rect * __mt9m021_get_pad_crop(struct daxc02 *mt9m021, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which)
 {
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
     switch (which)
     {
         case V4L2_SUBDEV_FORMAT_TRY:
@@ -1164,6 +1349,8 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
 
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+
     fmt->format = *__mt9m021_get_pad_format(mt9m021, fh, fmt->pad, fmt->which);
 
     return 0;
@@ -1177,6 +1364,8 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     struct v4l2_rect *__crop;
     unsigned int wratio;
     unsigned int hratio;
+
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
 
     __crop = __mt9m021_get_pad_crop(mt9m021, fh, format->pad, format->which);
     /* Clamp the width and height to avoid dividing by zero. */
@@ -1211,6 +1400,8 @@ static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
 {
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
 
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
+
     crop->rect = *__mt9m021_get_pad_crop(mt9m021, fh, crop->pad, crop->which);
 
     return 0;
@@ -1222,6 +1413,8 @@ static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
     struct v4l2_mbus_framefmt *__format;
     struct v4l2_rect *__crop;
     struct v4l2_rect rect;
+
+    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
 
     /* Clamp the crop rectangle boundaries and align them to a multiple of 2
     * pixels to ensure a GRBG Bayer pattern.
@@ -1293,8 +1486,8 @@ static struct v4l2_subdev_ops daxc02_subdev_ops = {
 static struct camera_common_sensor_ops daxc02_common_ops = {
     .power_on               = daxc02_power_on,
     .power_off              = daxc02_power_off,
-    //.write_reg              = mt9m021_write_reg,
-    //.read_reg               = mt9m021_read_reg,
+    .write_reg              = mt9m021_write_reg,
+    .read_reg               = mt9m021_read_reg,
 };
 
 
@@ -1306,6 +1499,8 @@ static int mt9m021_registered(struct v4l2_subdev *sd)
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     int32_t data;
     int count = 0;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     /* Read out the chip version register */
     data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
@@ -1326,12 +1521,16 @@ static int mt9m021_registered(struct v4l2_subdev *sd)
 
 static int mt9m021_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
+    dev_dbg(&client->dev, "%s\n", __func__);
     //return camera_common_s_power(sd, 1);
     return 0;
 }
 
 static int mt9m021_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
+    dev_dbg(&client->dev, "%s\n", __func__);
     //return camera_common_s_power(sd, 0);
     return 0;
 }
@@ -1372,6 +1571,8 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
     const struct of_device_id *match;
     //int gpio;
     int err;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (!node) return NULL;
 
@@ -1449,18 +1650,27 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 static int daxc02_ctrls_init(struct daxc02 *priv)
 {
     struct i2c_client *client = priv->i2c_client;
+    struct camera_common_data *common_data = priv->s_data;
     struct v4l2_ctrl *ctrl;
     int numctrls;
     int err;
     int i;
 
-    dev_dbg(&client->dev, "%s++\n", __func__);
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     numctrls = ARRAY_SIZE(ctrl_config_list);
+    dev_dbg(&client->dev, "initializing %d controls\n", numctrls);
     v4l2_ctrl_handler_init(&priv->ctrl_handler, numctrls);
 
     for (i = 0; i < numctrls; i++)
     {
+        /* Skip control 'V4L2_CID_EEPROM_DATA' */
+        if (ctrl_config_list[i].id == V4L2_CID_EEPROM_DATA) {
+            common_data->numctrls -= 1;
+            continue;
+        }
+
+        dev_dbg(&client->dev, "control %d: %s\n", i, ctrl_config_list[i].name);
         ctrl = v4l2_ctrl_new_custom(&priv->ctrl_handler, &ctrl_config_list[i], NULL);
         if (ctrl == NULL)
         {
@@ -1510,6 +1720,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     char debugfs_name[10];
     int err;
 
+    dev_dbg(&client->dev, "%s\n", __func__);
     pr_info("daxc02: probing v4l2 sensor.\n");
 
     common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
@@ -1624,7 +1835,7 @@ static int daxc02_remove(struct i2c_client *client)
     struct camera_common_data *s_data = to_camera_common_data(client);
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
 
-    //i2c_unregister_device(priv->tps22994_client);
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     v4l2_async_unregister_subdev(priv->subdev);
 
