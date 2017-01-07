@@ -1330,34 +1330,41 @@ static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh
 
 static struct v4l2_mbus_framefmt * __mt9m021_get_pad_format(struct daxc02 *mt9m021, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which)
 {
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
     switch (which)
     {
         case V4L2_SUBDEV_FORMAT_TRY:
+            if(!fh) break;
             return v4l2_subdev_get_try_format(fh, pad);
         case V4L2_SUBDEV_FORMAT_ACTIVE:
+            if(!mt9m021) break;
             return &mt9m021->format;
         default:
-            return NULL;
+            break;
     }
+    return NULL;
 }
 
 static struct v4l2_rect * __mt9m021_get_pad_crop(struct daxc02 *mt9m021, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which)
 {
-    dev_dbg(&mt9m021->i2c_client->dev, "%s\n", __func__);
     switch (which)
     {
         case V4L2_SUBDEV_FORMAT_TRY:
+            if(!fh) break;
             return v4l2_subdev_get_try_crop(fh, pad);
         case V4L2_SUBDEV_FORMAT_ACTIVE:
-            return &mt9m021->crop;
+            if(!mt9m021) break;
+            return &(mt9m021->crop);
         default:
-            return NULL;
+            break;
     }
+    return NULL;
 }
 
-static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *fmt)
+static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
+
+    //return camera_common_g_fmt(sd, &format->format);
+
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     if(!mt9m021)
@@ -1374,6 +1381,21 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
+
+    /*
+    int ret;
+    struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+    dev_dbg(&client->dev, "%s\n", __func__);
+
+    if (format->which == V4L2_SUBDEV_FORMAT_TRY)
+        ret = camera_common_try_fmt(sd, &format->format);
+    else
+        ret = camera_common_s_fmt(sd, &format->format);
+
+    return ret;
+    */
+
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     struct mt9m021_frame_size size;
@@ -1390,7 +1412,9 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     dev_dbg(&client->dev, "%s\n", __func__);
 
     __crop = __mt9m021_get_pad_crop(mt9m021, fh, format->pad, format->which);
-    /* Clamp the width and height to avoid dividing by zero. */
+    if(!__crop) return -EFAULT;
+
+    // Clamp the width and height to avoid dividing by zero.
     size.width = clamp_t(unsigned int, ALIGN(format->format.width, 2),
             MT9M021_WINDOW_WIDTH_MIN,
             MT9M021_WINDOW_WIDTH_MAX);
@@ -1779,12 +1803,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         return -EIO;
     }
 
-    /*
-    tps22994_client = of_find_i2c_device_by_node()
-    if (!tps22994_client) return -EINVAL;
-    tps22994_power_up(tps22994_client);
-    */
-
     common_data->ops            = &daxc02_common_ops;
     common_data->ctrl_handler   = &priv->ctrl_handler;
     common_data->i2c_client     = client;
@@ -1802,7 +1820,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     common_data->fmt_height     = common_data->def_height;
     common_data->def_clk_freq   = MT9M021_TARGET_FREQ;
 
-    //priv->tps22994_client       = tps22994_client;
     priv->i2c_client            = client;
     priv->s_data                = common_data;
     priv->subdev                = &common_data->subdev;
