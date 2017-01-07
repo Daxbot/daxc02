@@ -1374,7 +1374,7 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     }
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    fmt->format = *__mt9m021_get_pad_format(mt9m021, fh, fmt->pad, fmt->which);
+    format->format = *__mt9m021_get_pad_format(mt9m021, fh, format->pad, format->which);
 
     return 0;
 }
