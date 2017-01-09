@@ -220,6 +220,7 @@ static struct mt9m021_pll_divs mt9m021_divs[] = {
     {20250000,      74250000,       44,     2,      1,      6},
     {24000000,      48000000,       32,     2,      2,      4},
     {24000000,      66000000,       44,     2,      2,      4},
+    {24000000,      74250000,       99,     2,      4,      4},
     {27000000,      74250000,       44,     2,      1,      8},
     {48000000,      48000000,       40,     5,      2,      4}
 };
@@ -1771,7 +1772,7 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     struct camera_common_data *common_data;
-    struct mt9m021_platform_data *mt9m021_pdata = client->dev.platform_data;
+    struct mt9m021_platform_data *mt9m021_pdata;
     struct daxc02 *priv;
     struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
     //struct i2c_client *tps22994_client;
@@ -1781,10 +1782,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     dev_dbg(&client->dev, "%s\n", __func__);
     pr_info("daxc02: probing v4l2 sensor.\n");
 
-    if(!mt9m021_pdata)
-    {
-        dev_err(&client->dev, "no mt9m021 platform data\n");
-    }
+    mt9m021_pdata = devm_kzalloc(&client->dev, sizeof(struct mt9m021_platform_data), GFP_KERNEL);
+    if (!mt9m021_pdata) return -ENOMEM;
 
     common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
     if (!common_data) return -ENOMEM;
@@ -1807,6 +1806,10 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         dev_warn(&client->dev, "i2c-adapter doesn't support I2C_FUNC_SMBUS_WORD\n");
         return -EIO;
     }
+
+    mt9m021_pdata->ext_freq     = 24000000;
+    mt9m021_pdata->target_freq  = 74250000;
+    mt9m021_pdata->version      = MT9M021_COLOR_VERSION;
 
     common_data->ops            = &daxc02_common_ops;
     common_data->ctrl_handler   = &priv->ctrl_handler;
