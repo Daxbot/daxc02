@@ -1363,8 +1363,8 @@ static struct v4l2_rect * __mt9m021_get_pad_crop(struct daxc02 *mt9m021, struct 
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
 
-    //return camera_common_g_fmt(sd, &format->format);
-
+    return camera_common_g_fmt(sd, &format->format);
+    /*
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     if(!mt9m021)
@@ -1377,12 +1377,11 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     format->format = *__mt9m021_get_pad_format(mt9m021, fh, format->pad, format->which);
 
     return 0;
+    */
 }
 
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
-
-    /*
     int ret;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
 
@@ -1394,8 +1393,8 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
         ret = camera_common_s_fmt(sd, &format->format);
 
     return ret;
-    */
 
+    /*
     struct daxc02 *mt9m021 = container_of(&sd, struct daxc02, subdev);
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     struct mt9m021_frame_size size;
@@ -1440,6 +1439,7 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     mt9m021->format.code        = V4L2_MBUS_FMT_SGRBG12_1X12;
 
     return 0;
+    */
 }
 
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
@@ -1781,6 +1781,11 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     dev_dbg(&client->dev, "%s\n", __func__);
     pr_info("daxc02: probing v4l2 sensor.\n");
 
+    if(!mt9m021_pdata)
+    {
+        dev_err(&client->dev, "no mt9m021 platform data\n");
+    }
+
     common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
     if (!common_data) return -ENOMEM;
 
@@ -1793,7 +1798,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->pdata = daxc02_parse_dt(client);
     if (!priv->pdata)
     {
-        dev_err(&client->dev, "unable to get platform data\n");
+        dev_err(&client->dev, "unable to get device tree platform data\n");
         return -EFAULT;
     }
 
