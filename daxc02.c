@@ -997,14 +997,11 @@ static int mt9m021_pll_setup(struct i2c_client *client)
 {
     int ret;
     int i;
-    struct daxc02 *daxc02 = container_of(i2c_get_clientdata(client), struct daxc02, subdev);
+    struct camera_common_data *common_data = container_of(i2c_get_clientdata(client), struct camera_common_data, subdev);
+    struct daxc02 *daxc02 = common_data->priv;
     struct mt9m021_platform_data *mt9m021 = daxc02->mt9m021_pdata;
 
     dev_dbg(&client->dev, "%s\n", __func__);
-
-    dev_dbg(&client->dev, "daxc02=%lu\n", (unsigned long int)daxc02);
-    dev_dbg(&client->dev, "mt9m021=%lu\n", (unsigned long int)mt9m021);
-    dev_dbg(&client->dev, "daxc02->mt9m021_pdata=%lu\n", (unsigned long int)daxc02->mt9m021_pdata);
 
     for (i = 0; i < ARRAY_SIZE(mt9m021_divs); i++)
     {
@@ -1050,7 +1047,8 @@ static int mt9m021_pll_setup(struct i2c_client *client)
  */
 static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size *frame)
 {
-    struct daxc02 *mt9m021 = container_of(i2c_get_clientdata(client), struct daxc02, subdev);
+    struct camera_common_data *common_data = container_of(i2c_get_clientdata(client), struct camera_common_data, subdev);
+    struct daxc02 *daxc02 = common_data->priv;
     int ret;
     int hratio;
     int vratio;
@@ -1058,8 +1056,8 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
     dev_dbg(&client->dev, "%s\n", __func__);
 
 
-    hratio = DIV_ROUND_CLOSEST(mt9m021->crop.width, mt9m021->format.width);
-    vratio = DIV_ROUND_CLOSEST(mt9m021->crop.height, mt9m021->format.height);
+    hratio = DIV_ROUND_CLOSEST(daxc02->crop.width, daxc02->format.width);
+    vratio = DIV_ROUND_CLOSEST(daxc02->crop.height, daxc02->format.height);
     if (hratio == 2)
     {
         if (vratio == 2)
@@ -1092,15 +1090,15 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
         #endif
     }
 
-    ret = mt9m021_write(client, MT9M021_Y_ADDR_START, mt9m021->crop.top);
+    ret = mt9m021_write(client, MT9M021_Y_ADDR_START, daxc02->crop.top);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_X_ADDR_START, mt9m021->crop.left);
+    ret = mt9m021_write(client, MT9M021_X_ADDR_START, daxc02->crop.left);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_Y_ADDR_END, mt9m021->crop.top + mt9m021->crop.height - 1);
+    ret = mt9m021_write(client, MT9M021_Y_ADDR_END, daxc02->crop.top + daxc02->crop.height - 1);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_X_ADDR_END, mt9m021->crop.left + mt9m021->crop.width - 1);
+    ret = mt9m021_write(client, MT9M021_X_ADDR_END, daxc02->crop.left + daxc02->crop.width - 1);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, mt9m021->crop.height + 37);
+    ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, daxc02->crop.height + 37);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
     if(ret < 0) return ret;
@@ -1126,7 +1124,8 @@ static int mt9m021_is_streaming(struct i2c_client *client)
 static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode )
 
 {
-    struct daxc02 *mt9m021 = container_of(i2c_get_clientdata(client), struct daxc02, subdev);
+    struct camera_common_data *common_data = container_of(i2c_get_clientdata(client), struct camera_common_data, subdev);
+    struct daxc02 *daxc02 = common_data->priv;
     int streaming;
     int ret = 0;
 
@@ -1187,7 +1186,7 @@ static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposu
             ret = -ERANGE;
             break;
     }
-    if(ret == 0) mt9m021->autoexposure = ae_mode;
+    if(ret == 0) daxc02->autoexposure = ae_mode;
 
     return ret;
 }
@@ -1848,8 +1847,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->format.height         = MT9M021_WINDOW_HEIGHT_DEF;
     priv->format.field          = V4L2_FIELD_NONE;
     priv->format.colorspace     = V4L2_COLORSPACE_SRGB;
-
-    i2c_set_clientdata(client, priv->subdev);
 
     err = daxc02_power_get(priv);
     if (err) return err;
