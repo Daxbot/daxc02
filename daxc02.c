@@ -1849,7 +1849,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->format.field          = V4L2_FIELD_NONE;
     priv->format.colorspace     = V4L2_COLORSPACE_SRGB;
 
-    i2c_set_clientdata(priv->subdev);
+    i2c_set_clientdata(client, priv->subdev);
 
     err = daxc02_power_get(priv);
     if (err) return err;
