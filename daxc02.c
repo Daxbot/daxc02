@@ -1002,6 +1002,10 @@ static int mt9m021_pll_setup(struct i2c_client *client)
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
+    dev_dbg(&client->dev, "daxc02=%lu\n", (unsigned long int)daxc02);
+    dev_dbg(&client->dev, "mt9m021=%lu\n", (unsigned long int)mt9m021);
+    dev_dbg(&client->dev, "daxc02->mt9m021_pdata=%lu\n", (unsigned long int)daxc02->mt9m021_pdata);
+
     for (i = 0; i < ARRAY_SIZE(mt9m021_divs); i++)
     {
         if (mt9m021_divs[i].ext_freq == mt9m021->ext_freq &&
@@ -1016,10 +1020,8 @@ static int mt9m021_pll_setup(struct i2c_client *client)
     return -EINVAL;
 
     out:
-        #ifdef MT9M021_DEBUG
-        printk(KERN_INFO"mt9m021: PLL settings:M = %d, N = %d, P1 = %d, P2 = %d",
-        daxc02->pll->m, daxc02->pll->n, daxc02->pll->p1, daxc02->pll->p2);
-        #endif
+        dev_dbg(&client->dev, "PLL settings:M = %d, N = %d, P1 = %d, P2 = %d",
+                daxc02->pll->m, daxc02->pll->n, daxc02->pll->p1, daxc02->pll->p2);
         ret = mt9m021_write(client, MT9M021_VT_SYS_CLK_DIV, daxc02->pll->p1);
         if (ret < 0) return ret;
         ret = mt9m021_write(client, MT9M021_VT_PIX_CLK_DIV, daxc02->pll->p2);
@@ -1847,6 +1849,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->format.field          = V4L2_FIELD_NONE;
     priv->format.colorspace     = V4L2_COLORSPACE_SRGB;
 
+    i2c_set_clientdata(priv->subdev);
+
     err = daxc02_power_get(priv);
     if (err) return err;
 
@@ -1857,7 +1861,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         return err;
     }
     sprintf(debugfs_name, "daxc02_%c", common_data->csi_port + 'a');
-    dev_dbg(&client->dev, "%s: name %s\n", __func__, debugfs_name);
+    dev_dbg(&client->dev, "name %s\n", debugfs_name);
     camera_common_create_debugfs(common_data, debugfs_name);
 
     v4l2_i2c_subdev_init(priv->subdev, client, &daxc02_subdev_ops);
