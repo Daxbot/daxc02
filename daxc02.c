@@ -12,7 +12,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define MT9M021_DEBUG 1
 #define DEBUG 1
 
 #include <linux/device.h>
@@ -322,53 +321,60 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
     struct daxc02 *priv = container_of(ctrl->handler, struct daxc02, ctrl_handler);
     struct i2c_client *client = v4l2_get_subdevdata(priv->subdev);
-    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (priv->power.state == SWITCH_OFF) return 0;
 
     switch (ctrl->id) {
         case V4L2_CID_EXPOSURE_AUTO:
+            dev_dbg(&client->dev, "%s: V4L2_CID_EXPOSURE_AUTO\n", __func__);
             ret = mt9m021_set_autoexposure(client, (enum v4l2_exposure_auto_type)ctrl->val);
             if(ret < 0) return ret;
             break;
 
         case V4L2_CID_EXPOSURE:
+            dev_dbg(&client->dev, "%s: V4L2_CID_EXPOSURE\n", __func__);
             ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, ctrl->val);
             if(ret < 0) return ret;
             return mt9m021_write(client, MT9M021_COARSE_INT_TIME_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN\n", __func__);
             ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN, ctrl->val);
             if(ret < 0) return ret;
             return mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_GREEN1:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN1\n", __func__);
             ret = mt9m021_write(client, MT9M021_GREEN1_GAIN, ctrl->val);
             if(ret < 0) return ret;
             return mt9m021_write(client, MT9M021_GREEN1_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_RED:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_RED\n", __func__);
             ret = mt9m021_write(client, MT9M021_RED_GAIN, ctrl->val);
             if(ret < 0) return ret;
             return mt9m021_write(client, MT9M021_RED_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_BLUE:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_BLUE\n", __func__);
             ret = mt9m021_write(client, MT9M021_BLUE_GAIN, ctrl->val);
             if(ret < 0) return ret;
             return mt9m021_write(client, MT9M021_BLUE_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_GREEN2:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN2\n", __func__);
             ret = mt9m021_write(client, MT9M021_GREEN2_GAIN, ctrl->val);
             if(ret < 0) return ret;
             return mt9m021_write(client, MT9M021_GREEN2_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_ANALOG_GAIN:
+            dev_dbg(&client->dev, "%s: V4L2_CID_ANALOG_GAIN\n", __func__);
             reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
             reg16 = ( reg16 & ~MT9M021_ANALOG_GAIN_MASK ) |
                 ( ( ctrl->val << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK );
@@ -376,6 +382,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             break;
 
         case V4L2_CID_HFLIP:
+            dev_dbg(&client->dev, "%s: V4L2_CID_HFLIP\n", __func__);
             reg16 = mt9m021_read(client, MT9M021_READ_MODE);
             if (ctrl->val)
             {
@@ -390,6 +397,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             break;
 
         case V4L2_CID_VFLIP:
+            dev_dbg(&client->dev, "%s: V4L2_CID_VFLIP\n", __func__);
             reg16 = mt9m021_read(client, MT9M021_READ_MODE);
             if (ctrl->val)
             {
@@ -404,6 +412,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             break;
 
         case V4L2_CID_TEST_PATTERN:
+            dev_dbg(&client->dev, "%s: V4L2_CID_TEST_PATTERN\n", __func__);
             if (!ctrl->val)
             {
                 ret = mt9m021_write(client, MT9M021_TEST_PATTERN, 0x0000);
@@ -414,35 +423,35 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             break;
 
         case V4L2_CID_FRAME_LENGTH:
-            pr_err("%s: V4L2_CID_FRAME_LENGTH not implemented.\n", __func__);
+            dev_err(&client->dev, "%s: V4L2_CID_FRAME_LENGTH not implemented.\n", __func__);
             break;
 
         case V4L2_CID_COARSE_TIME:
-            pr_err("%s: V4L2_CID_COARSE_TIME not implemented.\n", __func__);
+            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME not implemented.\n", __func__);
             break;
 
         case V4L2_CID_COARSE_TIME_SHORT:
-            pr_err("%s: V4L2_CID_COARSE_TIME_SHORT not implemented.\n", __func__);
+            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME_SHORT not implemented.\n", __func__);
             break;
 
         case V4L2_CID_GROUP_HOLD:
-            pr_err("%s: V4L2_CID_GROUP_HOLD not implemented.\n", __func__);
+            dev_err(&client->dev, "%s: V4L2_CID_GROUP_HOLD not implemented.\n", __func__);
             break;
 
         case V4L2_CID_HDR_EN:
-            pr_err("%s: V4L2_CID_HDR_EN not implemented.\n", __func__);
+            dev_err(&client->dev, "%s: V4L2_CID_HDR_EN not implemented.\n", __func__);
             break;
 
         case V4L2_CID_OTP_DATA:
-            pr_err("%s: V4L2_CID_OTP_DATA not implemented.\n", __func__);
+            dev_err(&client->dev, "%s: V4L2_CID_OTP_DATA not implemented.\n", __func__);
             break;
 
         case V4L2_CID_FUSE_ID:
-            pr_err("%s: V4L2_CID_FUSE_ID not implemented.\n", __func__);
+            dev_err(&client->dev, "%s: V4L2_CID_FUSE_ID not implemented.\n", __func__);
             break;
 
         default:
-            pr_err("%s: unknown ctrl id.\n", __func__);
+            dev_err(&client->dev, "%s: unknown ctrl id.\n", __func__);
             return -EINVAL;
     }
 
@@ -454,17 +463,17 @@ static int daxc02_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
     struct daxc02 *priv = container_of(ctrl->handler, struct daxc02, ctrl_handler);
     int err = 0;
     struct i2c_client *client = v4l2_get_subdevdata(priv->subdev);
-    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (priv->power.state == SWITCH_OFF)
         return 0;
 
     switch (ctrl->id) {
     case V4L2_CID_EEPROM_DATA:
+        dev_err(&client->dev, "%s: V4L2_CID_EEPROM_DATA not implemented.\n", __func__);
         break;
 
     default:
-            pr_err("%s: unknown ctrl id.\n", __func__);
+            dev_err(&client->dev, "%s: unknown ctrl id.\n", __func__);
             return -EINVAL;
     }
 
@@ -808,8 +817,6 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
     uint16_t __addr;
     uint16_t ret;
 
-    dev_dbg(&client->dev, "%s\n", __func__);
-
     /* 16 bit addressable register */
     __addr = cpu_to_be16(addr);
 
@@ -827,13 +834,11 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
 
     if (ret < 0)
     {
-        v4l_err(client, "Read from offset 0x%x error %d", addr, ret);
+        dev_err(&client->dev, "Read from offset 0x%x error %d", addr, ret);
         return ret;
     }
 
-    #ifdef MT9M021_DEBUG
-        pr_info("daxc02: read offset 0x%x from %x@i2c%d, result 0x%x%x\n", addr, client->addr, i2c_adapter_id(client->adapter), buf[0], buf[1]);
-    #endif
+    dev_dbg(&client->dev, "daxc02: read offset 0x%x from %x@i2c%d, result 0x%x%x\n", addr, client->addr, i2c_adapter_id(client->adapter), buf[0], buf[1]);
 
     return (buf[0] << 8) | buf[1];
 }
@@ -854,7 +859,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data
     uint16_t __addr, __data;
     int ret;
 
-    dev_dbg(&client->dev, "%s\n", __func__);
+    dev_dbg(&client->dev, "%s: 0x%x\n", __func__, data);
 
     /* 16-bit addressable register */
 
@@ -1064,30 +1069,20 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
         {
             ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_HOR_AND_VER_BIN);
             if (ret < 0) return ret;
-
-            #ifdef MT9M021_DEBUG
-            printk(KERN_INFO"mt9m021: Horizontal and Vertical binning enabled\n");
-            #endif
+            dev_dbg(&client->dev, "mt9m021: Horizontal and Vertical binning enabled\n");
         }
         else if (vratio < 2)
         {
             ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_HOR_BIN);
             if (ret < 0) return ret;
-
-            #ifdef MT9M021_DEBUG
-            printk(KERN_INFO"mt9m021: Horizontal binning enabled\n");
-            #endif
+            dev_dbg(&client->dev, "mt9m021: Horizontal binning enabled\n");
         }
     }
     else
     {
-        ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING,
-            MT9M021_DISABLE_BINNING);
+        ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_DISABLE_BINNING);
         if (ret < 0) return ret;
-
-        #ifdef MT9M021_DEBUG
-        printk(KERN_INFO"mt9m021: Binning disabled\n");
-        #endif
+        dev_dbg(&client->dev, "mt9m021: Binning disabled\n");
     }
 
     ret = mt9m021_write(client, MT9M021_Y_ADDR_START, daxc02->crop.top);
