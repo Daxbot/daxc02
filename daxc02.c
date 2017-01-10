@@ -859,7 +859,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data
     uint16_t __addr, __data;
     int ret;
 
-    dev_dbg(&client->dev, "%s: 0x%x\n", __func__, data);
+    dev_dbg(&client->dev, "%s: 0x%x to 0x%x\n", __func__, data, addr);
 
     /* 16-bit addressable register */
 
