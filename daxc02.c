@@ -265,8 +265,6 @@ struct daxc02 {
     int                                 power_count;
     enum v4l2_exposure_auto_type        autoexposure;
 
-    //struct i2c_client                   *tps22994_client;
-
     struct v4l2_ctrl                    *ctrls[];
 };
 
@@ -664,10 +662,9 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     int err = 0;
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
+    struct i2c_client *client = s_data->i2c_client;
 
     dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
-    return 0;
-    //TODO: set up regulators for timed turn on
 
     if (priv->pdata && priv->pdata->power_on)
     {
@@ -681,38 +678,38 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     /* sleeps calls in the sequence below are for internal device
      * signal propagation as specified by sensor vendor */
 
+    if (pw->dvdd) err = regulator_enable(pw->dvdd);
+    if (err) goto daxc02_dvdd_fail;
+
     if (pw->avdd) err = regulator_enable(pw->avdd);
     if (err) goto daxc02_avdd_fail;
 
     if (pw->iovdd) err = regulator_enable(pw->iovdd);
     if (err) goto daxc02_iovdd_fail;
 
-    if (pw->dvdd) err = regulator_enable(pw->dvdd);
-    if (err) goto daxc02_dvdd_fail;
-
     usleep_range(1, 2);
-
-    //tps22994_power_up(priv->tps22994_client);
 
     /* a power on reset is generated after core power becomes stable */
     usleep_range(2000, 2010);
 
-    //TODO: Add reset gpio
-    // Set reset low
-    // Set reset high
+    /* soft reset */
+    err = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_RESET);
+    if(err < 0) return err;
+    msleep(200);
+
 
     usleep_range(1350, 1360);
 
     pw->state = SWITCH_ON;
     return 0;
 
-    daxc02_dvdd_fail:
-        regulator_disable(pw->iovdd);
-
     daxc02_iovdd_fail:
         regulator_disable(pw->avdd);
 
     daxc02_avdd_fail:
+        regulator_disable(pw->dvdd);
+
+    daxc02_dvdd_fail:
         pr_err("%s failed.\n", __func__);
         return -ENODEV;
 }
@@ -724,8 +721,6 @@ static int daxc02_power_off(struct camera_common_data *s_data)
     struct camera_common_power_rail *pw = &priv->power;
 
     dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
-    return 0;
-    //TODO: set up regulators for timed turn off
 
     if (priv->pdata && priv->pdata->power_on)
     {
@@ -734,8 +729,6 @@ static int daxc02_power_off(struct camera_common_data *s_data)
         else pr_err("%s failed.\n", __func__);
         return err;
     }
-
-    //tps22994_power_down(priv->tps22994_client);
 
     usleep_range(2000, 2010);
 
@@ -753,9 +746,9 @@ static int daxc02_power_put(struct daxc02 *priv)
 
     if (unlikely(!pw)) return -EFAULT;
 
-    if (likely(pw->avdd)) regulator_put(pw->avdd);
-
     if (likely(pw->iovdd)) regulator_put(pw->iovdd);
+
+    if (likely(pw->avdd)) regulator_put(pw->avdd);
 
     if (likely(pw->dvdd)) regulator_put(pw->dvdd);
 
@@ -793,13 +786,12 @@ static int daxc02_power_get(struct daxc02 *priv)
         else clk_set_parent(pw->mclk, parent);
     }
 
-
+    /* 1.2v */
+    err |= camera_common_regulator_get(priv->i2c_client, &pw->dvdd, pdata->regulators.dvdd);
     /* analog 2.8v */
     err |= camera_common_regulator_get(priv->i2c_client, &pw->avdd, pdata->regulators.avdd);
     /* IO 1.8v */
     err |= camera_common_regulator_get(priv->i2c_client, &pw->iovdd, pdata->regulators.iovdd);
-    /* 1.2v */
-    err |= camera_common_regulator_get(priv->i2c_client, &pw->dvdd, pdata->regulators.dvdd);
 
     pw->state = SWITCH_OFF;
     return err;
