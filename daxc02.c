@@ -297,7 +297,6 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format);
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop);
 static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop);
-static int mt9m021_registered(struct v4l2_subdev *sd);
 static int mt9m021_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static int mt9m021_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client);
@@ -676,16 +675,16 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     /* sleeps calls in the sequence below are for internal device
      * signal propagation as specified by sensor vendor */
 
-    if (pw->dvdd) err = regulator_enable(pw->dvdd);
+    if (pw->dvdd) err = regulator_enable(pw->dvdd);     // 1.2V
     if (err) goto daxc02_dvdd_fail;
 
-    if (pw->avdd) err = regulator_enable(pw->avdd);
+    usleep_range(5, 10);
+    if (pw->avdd) err = regulator_enable(pw->avdd);     // 2.8V
     if (err) goto daxc02_avdd_fail;
 
-    if (pw->iovdd) err = regulator_enable(pw->iovdd);
+    usleep_range(5, 10);
+    if (pw->iovdd) err = regulator_enable(pw->iovdd);   // 1.8V
     if (err) goto daxc02_iovdd_fail;
-
-    usleep_range(1, 2);
 
     /* a power on reset is generated after core power becomes stable */
     usleep_range(2000, 2010);
@@ -694,7 +693,6 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     err = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_RESET);
     if(err < 0) return err;
     msleep(200);
-
 
     usleep_range(1350, 1360);
 
@@ -731,7 +729,9 @@ static int daxc02_power_off(struct camera_common_data *s_data)
     usleep_range(2000, 2010);
 
     if (pw->iovdd) regulator_disable(pw->iovdd);
+    usleep_range(5, 10);
     if (pw->avdd) regulator_disable(pw->avdd);
+    usleep_range(5, 10);
     if (pw->dvdd) regulator_disable(pw->dvdd);
 
     return 0;
@@ -1462,8 +1462,7 @@ static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
     */
     if (rect.width != __crop->width || rect.height != __crop->height)
     {
-        __format = __mt9m021_get_pad_format(priv, fh, crop->pad,
-                                crop->which);
+        __format = __mt9m021_get_pad_format(priv, fh, crop->pad, crop->which);
         __format->width = rect.width;
         __format->height = rect.height;
     }
@@ -1516,31 +1515,6 @@ static struct camera_common_sensor_ops daxc02_common_ops = {
 /***********************************************************
     V4L2 subdev internal operations
 ************************************************************/
-static int mt9m021_registered(struct v4l2_subdev *sd)
-{
-    struct i2c_client *client = v4l2_get_subdevdata(sd);
-    int32_t data;
-    int count = 0;
-
-    dev_dbg(&client->dev, "%s\n", __func__);
-
-    /* Read out the chip version register */
-    data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
-    if (data != MT9M021_CHIP_ID)
-    {
-        while(count++ < 5)
-        {
-            data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
-            msleep(5);
-        }
-        dev_err(&client->dev, "Aptina MT9M021 not detected, chip ID read:0x%4.4x\n", data);
-        return -ENODEV;
-    }
-    dev_info(&client->dev, "Aptina MT9M021 detected at address 0x%02x\n", client->addr);
-
-    return 0;
-}
-
 static int mt9m021_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1562,7 +1536,6 @@ static int mt9m021_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
  * these ops.
  */
 static const struct v4l2_subdev_internal_ops mt9m021_subdev_internal_ops = {
-    .registered         = mt9m021_registered,
     .open               = mt9m021_open,
     .close              = mt9m021_close,
 };
@@ -1739,10 +1712,11 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     struct daxc02 *priv;
     struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
     char debugfs_name[10];
+    int32_t data;
+    uint8_t i;
     int err;
 
     dev_dbg(&client->dev, "%s\n", __func__);
-    pr_info("daxc02: probing v4l2 sensor.\n");
 
     mt9m021_pdata = devm_kzalloc(&client->dev, sizeof(struct mt9m021_platform_data), GFP_KERNEL);
     if (!mt9m021_pdata) return -ENOMEM;
@@ -1812,6 +1786,20 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     err = daxc02_power_get(priv);
     if (err) return err;
 
+    daxc02_power_on(common_data);
+    data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
+    if (data != MT9M021_CHIP_ID)
+    {
+        for(i=0; i < 5; i++)
+        {
+            data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
+            msleep(5);
+        }
+        dev_err(&client->dev, "Aptina MT9M021 not detected, chip ID read:0x%4.4x\n", data);
+        return -ENODEV;
+    }
+    dev_info(&client->dev, "Aptina MT9M021 detected at address 0x%02x\n", client->addr);
+
     err = camera_common_parse_ports(client, common_data);
     if (err)
     {
@@ -1853,8 +1841,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 static int daxc02_remove(struct i2c_client *client)
 {
-    struct camera_common_data *s_data = to_camera_common_data(client);
-    struct daxc02 *priv = (struct daxc02 *)s_data->priv;
+    struct camera_common_data *common_data = to_camera_common_data(client);
+    struct daxc02 *priv = (struct daxc02 *)common_data->priv;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
@@ -1865,8 +1853,9 @@ static int daxc02_remove(struct i2c_client *client)
     #endif
 
     v4l2_ctrl_handler_free(&priv->ctrl_handler);
+    daxc02_power_off(common_data);
     daxc02_power_put(priv);
-    camera_common_remove_debugfs(s_data);
+    camera_common_remove_debugfs(common_data);
 
     return 0;
 }

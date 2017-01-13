@@ -141,7 +141,6 @@ i2c6 = "/host1x/i2c@546c0000";
                 *
                 * mclk_multiplier = "";
                 * Multiplier to MCLK to help time hardware capture sequence
-                * TODO: Assign to PLL_Multiplier as well until fixed in core
                 *
                 * pix_clk_hz = "";
                 * Sensor pixel clock used for calculations like exposure and framerate
@@ -238,30 +237,13 @@ i2c6 = "/host1x/i2c@546c0000";
             };
         };
     };
-
+	
     regulators {
         /* VDD_SYS_EN */
         en_vdd_cam: regulator@5 {
             regulator-boot-on;
             regulator-always-on;
         };
-
-        /* CAM_VDD_2V8_EN */
-        en_vdd_cam_hv_2v8: regulator@206 {
-            regulator-boot-on;
-            regulator-always-on;
-        };
-
-        /* CAM_VDD_1V8_EN */
-        en_vdd_cam_1v8: regulator@211 {
-            regulator-boot-on;
-            regulator-always-on;
-        };
-		
-        /* CAM_VDD_1V2_EN */
-        en_vdd_cam_1v2: regulator@209 {
-            regulator-boot-on;
-            regulator-always-on;
-        };
     };
+    
 };
