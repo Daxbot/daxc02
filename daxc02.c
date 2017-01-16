@@ -562,6 +562,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .flags          = 0,
     },
     // Begin not implemented controls
+    /*
     {
         .ops = &daxc02_ctrl_ops,
         .id = V4L2_CID_FRAME_LENGTH,
@@ -647,6 +648,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max = 16,
         .step = 2,
     },
+    */
 };
 
 
@@ -824,11 +826,11 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
 
     if (ret < 0)
     {
-        dev_err(&client->dev, "Read from offset 0x%x error %d", addr, ret);
+        dev_err(&client->dev, "Read failed at 0x%x error %d\n", addr, ret);
         return ret;
     }
 
-    dev_dbg(&client->dev, "daxc02: read offset 0x%x from %x@i2c%d, result 0x%x%x\n", addr, client->addr, i2c_adapter_id(client->adapter), buf[0], buf[1]);
+    dev_dbg(&client->dev, "%s: 0x%x%x from 0x%x\n", __func__, buf[0], buf[1], addr);
 
     return (buf[0] << 8) | buf[1];
 }
@@ -869,7 +871,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data
     ret = i2c_transfer(client->adapter, &msg, 1);
     if (ret == 1) return 0;
 
-    v4l_err(client, "Write failed at 0x%x error %d\n", addr, ret);
+    dev_err(&client->dev, "Write failed at 0x%x error %d\n", addr, ret);
     return ret;
 }
 
