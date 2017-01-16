@@ -217,7 +217,7 @@ static struct mt9m021_pll_divs mt9m021_divs[] = {
     {20250000,      74250000,       44,     2,      1,      6},
     {24000000,      48000000,       32,     2,      2,      4},
     {24000000,      66000000,       44,     2,      2,      4},
-    {24000000,      74250000,       99,     2,      4,      4},
+    {24000000,      74250000,       99,     4,      1,      8},
     {27000000,      74250000,       44,     2,      1,      8},
     {48000000,      48000000,       40,     5,      2,      4}
 };
@@ -562,7 +562,6 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .flags          = 0,
     },
     // Begin not implemented controls
-    /*
     {
         .ops = &daxc02_ctrl_ops,
         .id = V4L2_CID_FRAME_LENGTH,
@@ -648,7 +647,6 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max = 16,
         .step = 2,
     },
-    */
 };
 
 
@@ -922,7 +920,8 @@ static int mt9m021_col_correction(struct i2c_client *client)
     if (ret < 0) return ret;
 
     /* Disable column correction */
-    ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0000);
+    //ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0000);
+    ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0007);
     if (ret < 0) return ret;
     msleep(200);
 
@@ -936,7 +935,8 @@ static int mt9m021_col_correction(struct i2c_client *client)
     if (ret < 0) return ret;
 
     /* Enable column correction */
-    ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0001);
+    //ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0001);
+    ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x8000);
     if (ret < 0) return ret;
     msleep(200);
 
@@ -973,7 +973,8 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
     ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0xE007);
     if (ret < 0) return ret;
 
-    ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0000);
+    //ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0000);
+    ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0380);
     if (ret < 0) return ret;
 
     for(i = 0; i < ARRAY_SIZE(mt9m021_analog_setting); i++)
@@ -1016,9 +1017,9 @@ static int mt9m021_pll_setup(struct i2c_client *client)
     out:
         dev_dbg(&client->dev, "PLL settings:M = %d, N = %d, P1 = %d, P2 = %d",
                 priv->pll->m, priv->pll->n, priv->pll->p1, priv->pll->p2);
-        ret = mt9m021_write(client, MT9M021_VT_SYS_CLK_DIV, priv->pll->p1);
+        ret = mt9m021_write(client, MT9M021_VT_PIX_CLK_DIV, priv->pll->p1);
         if (ret < 0) return ret;
-        ret = mt9m021_write(client, MT9M021_VT_PIX_CLK_DIV, priv->pll->p2);
+        ret = mt9m021_write(client, MT9M021_VT_SYS_CLK_DIV, priv->pll->p2);
         if (ret < 0) return ret;
         ret = mt9m021_write(client, MT9M021_PRE_PLL_CLK_DIV, priv->pll->n);
         if (ret < 0) return ret;
@@ -1052,6 +1053,18 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
+    /*
+    0x3002, 0x0078,     // Y_ADDR_START
+    0x3004, 0x0000,     // X_ADDR_START
+    0x3006, 0x0347,     // Y_ADDR_END
+    0x3008, 0x04FF,     // X_ADDR_END
+    0x300A, 0x02EB,     // FRAME_LENGTH_LINES
+    0x300C, 0x0672,     // LINE_LENGTH_PCK,59.99~60.02
+    0x3012, 0x01C2,     // COARSE_INTEGRATION_TIME
+    0x30A2, 0x0001,     // X_ODD_INC
+    0x30A6, 0x0001,     // Y_ODD_INC
+    0x3040, 0x0000,     // READ_MODE
+    */
 
     hratio = DIV_ROUND_CLOSEST(priv->crop.width, priv->format.width);
     vratio = DIV_ROUND_CLOSEST(priv->crop.height, priv->format.height);
@@ -1094,6 +1107,7 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
     ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
     if(ret < 0) return ret;
     return mt9m021_write(client, MT9M021_Y_ODD_INC, 0x0001);
+
 }
 
 static int mt9m021_is_streaming(struct i2c_client *client)
@@ -1109,7 +1123,6 @@ static int mt9m021_is_streaming(struct i2c_client *client)
 }
 
 static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode )
-
 {
     struct camera_common_data *common_data = to_camera_common_data(client);
     struct daxc02 *priv = common_data->priv;
@@ -1193,14 +1206,6 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 
     if (!enable) return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
 
-    /* soft reset */
-        /*
-    ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_RESET);
-    if(ret < 0)
-        return ret;
-
-    msleep(200);
-        */
     ret = mt9m021_sequencer_settings(client);
     if (ret < 0)
     {
@@ -1222,6 +1227,13 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
+    ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1802);
+    if (ret < 0)
+    {
+        printk(KERN_ERR"%s: Failed to disable embedded data\n",__func__);
+        return ret;
+    }
+
     ret = mt9m021_pll_setup(client);
     if (ret < 0)
     {
@@ -1237,7 +1249,8 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     }
 
     /* start streaming */
-    return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
+    //return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
+    return mt9m021_write(client, MT9M021_RESET_REG, 0x10DC);
 }
 
 static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status)
@@ -1753,13 +1766,13 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     common_data->ctrl_handler   = &priv->ctrl_handler;
     common_data->i2c_client     = client;
     common_data->frmfmt         = mt9m021_frmfmt;
-    common_data->colorfmt       = camera_common_find_datafmt(V4L2_MBUS_FMT_SRGGB12_1X12);
+    common_data->colorfmt       = camera_common_find_datafmt(V4L2_MBUS_FMT_SGRBG12_1X12);
     common_data->numfmts        = ARRAY_SIZE(mt9m021_frmfmt);
     common_data->power          = &priv->power;
     common_data->ctrls          = priv->ctrls;
     common_data->priv           = (void *)priv;
     common_data->numctrls       = ARRAY_SIZE(ctrl_config_list);
-    common_data->def_mode       = MT9M021_DEFAULT_MODE;
+    common_data->def_mode       = 0;
     common_data->def_width      = MT9M021_PIXEL_ARRAY_WIDTH;
     common_data->def_height     = MT9M021_PIXEL_ARRAY_HEIGHT;
     common_data->fmt_width      = common_data->def_width;

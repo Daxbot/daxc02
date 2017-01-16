@@ -19,18 +19,12 @@
 
 #include <media/camera_common.h>
 
-#define mt9m021_reg struct reg_16
-
-enum {
-	MT9M021_DEFAULT_MODE
-};
-
 static const int mt9m021_60fps[] = {
 	60,
 };
 
 static const struct camera_common_frmfmt mt9m021_frmfmt[] = {
-	{{1280, 960},	mt9m021_60fps,	1, 0,	MT9M021_DEFAULT_MODE},
+	{{1280, 960},	mt9m021_60fps,	1, 0, 0},
 };
 #endif  /* __MT9M021_TABLES__ */
 
