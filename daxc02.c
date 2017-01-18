@@ -48,13 +48,13 @@
 
 #define MT9M021_ROW_START_MIN           0
 #define MT9M021_ROW_START_MAX           960
-#define MT9M021_ROW_START_DEF           0
+#define MT9M021_ROW_START_DEF           0x0078
 #define MT9M021_COLUMN_START_MIN        0
 #define MT9M021_COLUMN_START_MAX        1280
 #define MT9M021_COLUMN_START_DEF        0
 #define MT9M021_WINDOW_HEIGHT_MIN       2
-#define MT9M021_WINDOW_HEIGHT_MAX       960
-#define MT9M021_WINDOW_HEIGHT_DEF       960
+#define MT9M021_WINDOW_HEIGHT_MAX       720
+#define MT9M021_WINDOW_HEIGHT_DEF       720
 #define MT9M021_WINDOW_WIDTH_MIN        2
 #define MT9M021_WINDOW_WIDTH_MAX        1280
 #define MT9M021_WINDOW_WIDTH_DEF        1280
@@ -98,6 +98,7 @@
 #define MT9M021_HOR_AND_VER_BIN         0x0022
 #define MT9M021_HOR_BIN                 0x0011
 #define MT9M021_DISABLE_BINNING         0x0000
+#define MT9M021_BINNING_DEF             0x0020
 
 #define MT9M021_AE_CTRL_REG             0x3100
 #define MT9M021_EMBEDDED_DATA_CTRL      0x3064
@@ -165,6 +166,42 @@ static unsigned int mt9m021_seq_data[133] = {
     0x2500, 0x1027, 0x0010, 0x2F6F, 0x0F3E, 0x2500, 0x0827, 0x0008,
     0x3066, 0x3225, 0x0008, 0x2700, 0x0830, 0x6631, 0x3D64, 0x2508,
     0x083D, 0xFF3D, 0x2A27, 0x083F, 0x2C00
+};
+
+struct daxc02_buffer_settings {
+    uint8_t len;
+    uint16_t addr;
+    uint32_t data;
+};
+
+struct daxc02_buffer_settings daxc02_buffer_mipi_output[27] = {
+   {2, 0x0004, 0x0004},
+   {2, 0x0002, 0x0001},
+   {2, 0x0002, 0x0000},
+   {2, 0x0016, 0x50F9},
+   {2, 0x0018, 0x0213},
+   {2, 0x0006, 0x0030},
+   {2, 0x0008, 0x0020},//RAW12
+   {2, 0x0022, 0x0780},
+   {4, 0x0140, 0x00000000},
+   {4, 0x0144, 0x00000000},
+   {4, 0x0148, 0x00000001},
+   {4, 0x014C, 0x00000001},
+   {4, 0x0150, 0x00000001},
+   {4, 0x0210, 0x00002C00},
+   {4, 0x0214, 0x00000005},
+   {4, 0x0218, 0x00001E06},
+   {4, 0x021C, 0x00000004},
+   {4, 0x0220, 0x00000406},
+   {4, 0x0224, 0x00004988},
+   {4, 0x0228, 0x0000000C},
+   {4, 0x022C, 0x00000006},
+   {4, 0x0234, 0x00000003},
+   {4, 0x0238, 0x00000001},
+   {4, 0x0204, 0x00000001},//TX PPI starts
+   {4, 0x0518, 0x00000001},
+   {4, 0x0500, 0xA30080A1},
+   {2, 0x0004, 0x0044},
 };
 
 static unsigned int mt9m021_analog_setting[8] = {
@@ -280,19 +317,18 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr);
 static inline int mt9m021_read_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t *val);
 static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val);
 static int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t val);
+static int daxc02_bridge_settings(struct i2c_client *client);
 static int mt9m021_sequencer_settings(struct i2c_client *client);
 static int mt9m021_col_correction(struct i2c_client *client);
 static int mt9m021_rev2_settings(struct i2c_client *client);
 static int mt9m021_pll_setup(struct i2c_client *client);
-static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size *frame);
+static int mt9m021_set_size(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
 static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode );
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
 static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status);
 static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_mbus_code_enum *code);
 static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_frame_size_enum *fse);
-static struct v4l2_mbus_framefmt * __mt9m021_get_pad_format(struct daxc02 *priv, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which);
-static struct v4l2_rect * __mt9m021_get_pad_crop(struct daxc02 *priv, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which);
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *fmt);
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format);
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop);
@@ -824,7 +860,7 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
 
     if (ret < 0)
     {
-        dev_err(&client->dev, "Read failed at 0x%x error %d\n", addr, ret);
+        dev_err(&client->dev, "read failed at 0x%x error %d\n", addr, ret);
         return ret;
     }
 
@@ -842,7 +878,7 @@ static inline int mt9m021_read_reg(struct camera_common_data *s_data, uint16_t a
     return 0;
 }
 
-static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data)
+static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data)
 {
     struct i2c_msg msg;
     uint8_t buf[4];
@@ -869,7 +905,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data
     ret = i2c_transfer(client->adapter, &msg, 1);
     if (ret == 1) return 0;
 
-    dev_err(&client->dev, "Write failed at 0x%x error %d\n", addr, ret);
+    dev_err(&client->dev, "write failed at 0x%x error %d\n", addr, ret);
     return ret;
 }
 
@@ -879,6 +915,55 @@ static inline int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t 
     struct i2c_client *client = s_data->i2c_client;
     dev_dbg(&client->dev, "%s\n", __func__);
     return mt9m021_write(client, addr, val);
+}
+
+static int daxc02_bridge_settings(struct i2c_client *client)
+{
+    struct i2c_msg msg;
+    uint8_t buf[6];
+    struct daxc02_buffer_settings settings;
+    uint16_t __addr;
+    uint32_t __data;
+    int ret;
+    uint8_t i;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
+
+    for(i = 0; i < ARRAY_SIZE(daxc02_buffer_mipi_output); i++)
+    {
+        settings = daxc02_buffer_mipi_output[i];
+
+        __addr = cpu_to_be16(settings.addr);
+        __data = cpu_to_be32(settings.data);
+
+        buf[0] = __addr & 0xff;
+        buf[1] = __addr >> 8;
+        buf[2] = __data & 0xff;
+        buf[3] = (__data >> 8) & 0xff;
+        buf[4] = (__data >> 16) & 0xff;
+        buf[5] = (__data >> 24) & 0xff;
+
+        msg.addr  = client->addr;
+        msg.flags = 0;
+        msg.len   = settings.len;
+        msg.buf   = buf;
+
+        dev_dbg(&client->dev, "%s: 0x%x%x%x%x to 0x%x\n",
+                __func__,
+                buf[2],
+                buf[3],
+                buf[4],
+                buf[5],
+                __addr);
+        ret = i2c_transfer(client->adapter, &msg, 1);
+        if (ret < 0)
+        {
+            dev_err(&client->dev, "%s failed at 0x%x error %d\n", __func__, __addr, ret);
+            break;
+        }
+    }
+
+    return ret;
 }
 
 /**
@@ -1043,13 +1128,11 @@ static int mt9m021_pll_setup(struct i2c_client *client)
  * @client: pointer to the i2c client
  *
  */
-static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size *frame)
+static int mt9m021_set_size(struct i2c_client *client)
 {
     struct camera_common_data *common_data = to_camera_common_data(client);
     struct daxc02 *priv = common_data->priv;
     int ret;
-    int hratio;
-    int vratio;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
@@ -1063,33 +1146,10 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
     0x3012, 0x01C2,     // COARSE_INTEGRATION_TIME
     0x30A2, 0x0001,     // X_ODD_INC
     0x30A6, 0x0001,     // Y_ODD_INC
-    0x3040, 0x0000,     // READ_MODE
     */
 
-    hratio = DIV_ROUND_CLOSEST(priv->crop.width, priv->format.width);
-    vratio = DIV_ROUND_CLOSEST(priv->crop.height, priv->format.height);
-    if (hratio == 2)
-    {
-        if (vratio == 2)
-        {
-            ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_HOR_AND_VER_BIN);
-            if (ret < 0) return ret;
-            dev_dbg(&client->dev, "mt9m021: Horizontal and Vertical binning enabled\n");
-        }
-        else if (vratio < 2)
-        {
-            ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_HOR_BIN);
-            if (ret < 0) return ret;
-            dev_dbg(&client->dev, "mt9m021: Horizontal binning enabled\n");
-        }
-    }
-    else
-    {
-        ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_DISABLE_BINNING);
-        if (ret < 0) return ret;
-        dev_dbg(&client->dev, "mt9m021: Binning disabled\n");
-    }
-
+    ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_BINNING_DEF);
+    if (ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_Y_ADDR_START, priv->crop.top);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ADDR_START, priv->crop.left);
@@ -1098,7 +1158,7 @@ static int mt9m021_set_size(struct i2c_client *client, struct mt9m021_frame_size
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ADDR_END, priv->crop.left + priv->crop.width - 1);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, priv->crop.height + 37);
+    ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, priv->crop.height + 27);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
     if(ret < 0) return ret;
@@ -1199,7 +1259,6 @@ static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposu
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct mt9m021_frame_size frame;
     int ret;
 
     dev_dbg(&client->dev, "%s\n", __func__);
@@ -1241,10 +1300,24 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
-    ret = mt9m021_set_size(client, &frame);
+    ret = mt9m021_set_size(client);
     if (ret < 0)
     {
         printk(KERN_ERR"%s: Failed to setup resolution\n",__func__);
+        return ret;
+    }
+
+    ret = mt9m021_write(client, MT9M021_READ_MODE, 0);
+    if (ret < 0)
+    {
+        printk(KERN_ERR"%s: Failed to disable read mode\n",__func__);
+        return ret;
+    }
+
+    ret = daxc02_bridge_settings(client);
+    if (ret < 0)
+    {
+        printk(KERN_ERR"%s: Failed to setup mipi bridge\n",__func__);
         return ret;
     }
 
@@ -1322,71 +1395,22 @@ static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh
     return 0;
 }
 
-static struct v4l2_mbus_framefmt * __mt9m021_get_pad_format(struct daxc02 *priv, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which)
-{
-    switch (which)
-    {
-        case V4L2_SUBDEV_FORMAT_TRY:
-            if(!fh) break;
-            return v4l2_subdev_get_try_format(fh, pad);
-        case V4L2_SUBDEV_FORMAT_ACTIVE:
-            if(!priv) break;
-            return &priv->format;
-        default:
-            break;
-    }
-    return NULL;
-}
-
-static struct v4l2_rect * __mt9m021_get_pad_crop(struct daxc02 *priv, struct v4l2_subdev_fh *fh, unsigned int pad, uint32_t which)
-{
-    switch (which)
-    {
-        case V4L2_SUBDEV_FORMAT_TRY:
-            if(!fh) break;
-            return v4l2_subdev_get_try_crop(fh, pad);
-        case V4L2_SUBDEV_FORMAT_ACTIVE:
-            if(!priv) break;
-            return &(priv->crop);
-        default:
-            break;
-    }
-    return NULL;
-}
-
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
-
-    return camera_common_g_fmt(sd, &format->format);
-    /*
-    struct camera_common_data *common_data = container_of(&sd, struct camera_common_data, subdev);
+    struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
     struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    format->format = *__mt9m021_get_pad_format(priv, fh, format->pad, format->which);
+    format->format = priv->format;
 
     return 0;
-    */
 }
 
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
-    int ret;
-    struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-    dev_dbg(&client->dev, "%s\n", __func__);
-
-    if (format->which == V4L2_SUBDEV_FORMAT_TRY)
-        ret = camera_common_try_fmt(sd, &format->format);
-    else
-        ret = camera_common_s_fmt(sd, &format->format);
-
-    return ret;
-
-    /*
-    struct camera_common_data *common_data = container_of(&sd, struct camera_common_data, subdev);
+    struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
     struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     struct mt9m021_frame_size size;
@@ -1397,8 +1421,7 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    __crop = __mt9m021_get_pad_crop(priv, fh, format->pad, format->which);
-    if(!__crop) return -EFAULT;
+    __crop = &priv->crop;
 
     // Clamp the width and height to avoid dividing by zero.
     size.width = clamp_t(unsigned int, ALIGN(format->format.width, 2),
@@ -1411,7 +1434,7 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     wratio = DIV_ROUND_CLOSEST(__crop->width, size.width);
     hratio = DIV_ROUND_CLOSEST(__crop->height, size.height);
 
-    __format = __mt9m021_get_pad_format(priv, fh, format->pad, format->which);
+    __format = &priv->format;
 
     __format->width             = __crop->width / wratio;
     __format->height            = __crop->height / hratio;
@@ -1426,7 +1449,6 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     priv->format.code        = V4L2_MBUS_FMT_SGRBG12_1X12;
 
     return 0;
-    */
 }
 
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
@@ -1437,7 +1459,7 @@ static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    crop->rect = *__mt9m021_get_pad_crop(priv, fh, crop->pad, crop->which);
+    crop->rect = priv->crop;
 
     return 0;
 }
@@ -1470,14 +1492,14 @@ static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
     rect.width = min(rect.width, MT9M021_PIXEL_ARRAY_WIDTH - rect.left);
     rect.height = min(rect.height, MT9M021_PIXEL_ARRAY_HEIGHT - rect.top);
 
-    __crop = __mt9m021_get_pad_crop(priv, fh, crop->pad, crop->which);
+    __crop = &priv->crop;
 
     /* Reset the output image size if the crop rectangle size has
     * been modified.
     */
     if (rect.width != __crop->width || rect.height != __crop->height)
     {
-        __format = __mt9m021_get_pad_format(priv, fh, crop->pad, crop->which);
+        __format = &priv->format;
         __format->width = rect.width;
         __format->height = rect.height;
     }
@@ -1603,22 +1625,6 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
         dev_err(&client->dev, "Failed to find clocks\n");
         goto error;
     }
-
-    /*
-    gpio = of_get_named_gpio(node, "pwdn-gpios", 0);
-    if (gpio < 0) {
-        dev_err(&client->dev, "pwdn gpios not in DT\n");
-        goto error;
-    }
-    board_priv_pdata->pwdn_gpio = (unsigned int)gpio;
-
-    gpio = of_get_named_gpio(node, "reset-gpios", 0);
-    if (gpio < 0) {
-        dev_dbg(&client->dev, "reset gpios not in DT\n");
-        gpio = 0;
-    }
-    board_priv_pdata->reset_gpio = (unsigned int)gpio;
-    */
 
     board_priv_pdata->use_cam_gpio =
         of_property_read_bool(node, "cam,use-cam-gpio");
