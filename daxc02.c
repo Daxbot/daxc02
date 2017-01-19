@@ -860,11 +860,11 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
 
     if (ret < 0)
     {
-        dev_err(&client->dev, "read failed at 0x%x error %d\n", addr, ret);
+        dev_err(&client->dev, "read failed at 0x%04x error %d\n", addr, ret);
         return ret;
     }
 
-    dev_dbg(&client->dev, "%s: 0x%x%x from 0x%x\n", __func__, buf[0], buf[1], addr);
+    dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], addr);
 
     return (buf[0] << 8) | buf[1];
 }
@@ -885,7 +885,7 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
     uint16_t __addr, __data;
     int ret;
 
-    dev_dbg(&client->dev, "%s: 0x%x to 0x%x\n", __func__, data, addr);
+    dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, data, addr);
 
     /* 16-bit addressable register */
 
@@ -905,7 +905,7 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
     ret = i2c_transfer(client->adapter, &msg, 1);
     if (ret == 1) return 0;
 
-    dev_err(&client->dev, "write failed at 0x%x error %d\n", addr, ret);
+    dev_err(&client->dev, "write failed at 0x%04x error %d\n", addr, ret);
     return ret;
 }
 
@@ -948,17 +948,10 @@ static int daxc02_bridge_settings(struct i2c_client *client)
         msg.len   = settings.len;
         msg.buf   = buf;
 
-        dev_dbg(&client->dev, "%s: 0x%x%x%x%x to 0x%x\n",
-                __func__,
-                buf[2],
-                buf[3],
-                buf[4],
-                buf[5],
-                __addr);
         ret = i2c_transfer(client->adapter, &msg, 1);
         if (ret < 0)
         {
-            dev_err(&client->dev, "%s failed at 0x%x error %d\n", __func__, __addr, ret);
+            dev_err(&client->dev, "%s failed at 0x%04x error %d\n", __func__, __addr, ret);
             break;
         }
     }
@@ -1005,14 +998,15 @@ static int mt9m021_col_correction(struct i2c_client *client)
     if (ret < 0) return ret;
 
     /* Disable column correction */
-    //ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0000);
     ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0007);
     if (ret < 0) return ret;
+
     msleep(200);
 
     /* Enable Streaming */
     ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
     if (ret < 0) return ret;
+
     msleep(200);
 
     /* Disable Streaming */
@@ -1020,8 +1014,7 @@ static int mt9m021_col_correction(struct i2c_client *client)
     if (ret < 0) return ret;
 
     /* Enable column correction */
-    //ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x0001);
-    ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0x8000);
+    ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0xE007);
     if (ret < 0) return ret;
     msleep(200);
 
@@ -1053,9 +1046,6 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
     if (ret < 0) return ret;
 
     ret = mt9m021_write(client, 0x3180, 0x8000);
-    if (ret < 0) return ret;
-
-    ret = mt9m021_write(client, MT9M021_COLUMN_CORRECTION, 0xE007);
     if (ret < 0) return ret;
 
     //ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0000);
@@ -1272,10 +1262,17 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
+    ret = mt9m021_pll_setup(client);
+    if (ret < 0)
+    {
+        printk(KERN_ERR"%s: Failed to setup pll\n",__func__);
+        return ret;
+    }
+
     ret = mt9m021_col_correction(client);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup column correction\n",__func__);
+        printk(KERN_ERR"%s: Failed to setup column correction1\n",__func__);
         return ret;
     }
 
@@ -1290,13 +1287,6 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     if (ret < 0)
     {
         printk(KERN_ERR"%s: Failed to disable embedded data\n",__func__);
-        return ret;
-    }
-
-    ret = mt9m021_pll_setup(client);
-    if (ret < 0)
-    {
-        printk(KERN_ERR"%s: Failed to setup pll\n",__func__);
         return ret;
     }
 
