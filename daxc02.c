@@ -39,6 +39,7 @@
         MT9M021 Defines
 ****************************************************/
 
+#define BRIDGE_I2C_ADDR                 0x0e
 #define MT9M021_I2C_ADDR                0x10
 #define MT9M021_EXT_FREQ                20250000
 #define MT9M021_TARGET_FREQ             74250000
@@ -317,7 +318,7 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr);
 static inline int mt9m021_read_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t *val);
 static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val);
 static int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t val);
-static int daxc02_bridge_settings(struct i2c_client *client);
+static int daxc02_bridge_setup(struct i2c_client *client);
 static int mt9m021_sequencer_settings(struct i2c_client *client);
 static int mt9m021_col_correction(struct i2c_client *client);
 static int mt9m021_rev2_settings(struct i2c_client *client);
@@ -917,9 +918,9 @@ static inline int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t 
     return mt9m021_write(client, addr, val);
 }
 
-static int daxc02_bridge_settings(struct i2c_client *client)
+static int daxc02_bridge_setup(struct i2c_client *client)
 {
-    struct i2c_msg msg;
+    struct i2c_msg msg[2];
     uint8_t buf[6];
     struct daxc02_buffer_settings settings;
     uint16_t __addr;
@@ -927,14 +928,15 @@ static int daxc02_bridge_settings(struct i2c_client *client)
     int ret;
     uint8_t i;
 
-    dev_dbg(&client->dev, "%s\n", __func__);
-
     for(i = 0; i < ARRAY_SIZE(daxc02_buffer_mipi_output); i++)
     {
         settings = daxc02_buffer_mipi_output[i];
 
         __addr = cpu_to_be16(settings.addr);
-        __data = cpu_to_be32(settings.data);
+
+        if(settings.len == 2) __data = cpu_to_be16(settings.data);
+        else if(settings.len == 4) __data = cpu_to_be32(settings.data);
+        else return -EINVAL;
 
         buf[0] = __addr & 0xff;
         buf[1] = __addr >> 8;
@@ -943,17 +945,42 @@ static int daxc02_bridge_settings(struct i2c_client *client)
         buf[4] = (__data >> 16) & 0xff;
         buf[5] = (__data >> 24) & 0xff;
 
-        msg.addr  = client->addr;
-        msg.flags = 0;
-        msg.len   = settings.len;
-        msg.buf   = buf;
+        msg[0].addr  = BRIDGE_I2C_ADDR;
+        msg[0].flags = 0;
+        msg[0].len   = settings.len + 2;
+        msg[0].buf   = buf;
 
-        ret = i2c_transfer(client->adapter, &msg, 1);
+        ret = i2c_transfer(client->adapter, msg, 1);
+
+        if(settings.len == 2) dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, settings.data, settings.addr);
+        else dev_dbg(&client->dev, "%s: 0x%08x to 0x%04x\n", __func__, settings.data, settings.addr);
+
         if (ret < 0)
         {
-            dev_err(&client->dev, "%s failed at 0x%04x error %d\n", __func__, __addr, ret);
+            dev_err(&client->dev, "%s failed at 0x%04x error %d\n", __func__, settings.addr, ret);
             break;
         }
+
+        msg[0].addr     = BRIDGE_I2C_ADDR;
+        msg[0].flags    = 0;
+        msg[0].len      = 2;
+        msg[0].buf      = (uint8_t *)&__addr;
+
+        msg[1].addr     = BRIDGE_I2C_ADDR;
+        msg[1].flags    = I2C_M_RD; // 1
+        msg[1].len      = settings.len;
+        msg[1].buf      = buf;
+
+        ret = i2c_transfer(client->adapter, msg, 2);
+
+        if (ret < 0)
+        {
+            dev_err(&client->dev, "%s: read failed at 0x%04x error %d\n", __func__, settings.addr, ret);
+            break;
+        }
+
+        if(settings.len == 2) dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], settings.addr);
+        else dev_dbg(&client->dev, "%s: 0x%02x%02x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], buf[2], buf[3], settings.addr);
     }
 
     return ret;
@@ -1255,6 +1282,13 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 
     if (!enable) return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
 
+    ret = daxc02_bridge_setup(client);
+    if (ret < 0)
+    {
+        printk(KERN_ERR"%s: Failed to setup mipi bridge\n",__func__);
+        return ret;
+    }
+
     ret = mt9m021_sequencer_settings(client);
     if (ret < 0)
     {
@@ -1272,7 +1306,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     ret = mt9m021_col_correction(client);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup column correction1\n",__func__);
+        printk(KERN_ERR"%s: Failed to setup column correction\n",__func__);
         return ret;
     }
 
@@ -1304,12 +1338,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
-    ret = daxc02_bridge_settings(client);
-    if (ret < 0)
-    {
-        printk(KERN_ERR"%s: Failed to setup mipi bridge\n",__func__);
-        return ret;
-    }
+
 
     /* start streaming */
     //return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
