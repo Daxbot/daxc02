@@ -176,33 +176,163 @@ struct daxc02_buffer_settings {
 };
 
 struct daxc02_buffer_settings daxc02_buffer_mipi_output[27] = {
-   {2, 0x0004, 0x0004},
-   {2, 0x0002, 0x0001},
-   {2, 0x0002, 0x0000},
-   {2, 0x0016, 0x50F9},
-   {2, 0x0018, 0x0213},
-   {2, 0x0006, 0x0030},
-   {2, 0x0008, 0x0020},//RAW12
-   {2, 0x0022, 0x0780},
-   {4, 0x0140, 0x00000000},
-   {4, 0x0144, 0x00000000},
-   {4, 0x0148, 0x00000001},
-   {4, 0x014C, 0x00000001},
-   {4, 0x0150, 0x00000001},
+   {2, 0x0004, 0x0004}, // Parallel Data Format mode0 + PCLK Inverted
+   {2, 0x0002, 0x0001}, // reset 1
+   {2, 0x0002, 0x0000}, // reset 0
+   {2, 0x0016, 0x50F9}, // set the input and feedback frequency division ratio
+   {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
+   {2, 0x0006, 0x0030}, // FIFO level 3
+   {2, 0x0008, 0x0020}, // data format RAW12
+   {2, 0x0022, 0x0780}, // word count (bytes per line)
+   {4, 0x0140, 0x00000000}, // Clock lane, bypass lane enable
+   {4, 0x0144, 0x00000000}, // Data lane 0, bypass lane enable
+   {4, 0x0148, 0x00000001}, // Data lane 1, lane disable
+   {4, 0x014C, 0x00000001}, // Data lane 2, lane disable
+   {4, 0x0150, 0x00000001}, // Data lane 3, lane disable
+
+   /*
+    Line Initialization Wait Counter
+    This counter is used for line initialization.
+    Set this register before setting [STARTCNTRL] .START = 1.
+    MIPI specification requires that the slave device needs to observe LP-11 for
+    100 us and ignore the received data before the period at initialization time.
+    The count value depends on HFCLK and the value needs to be set to achieve
+    More than 100 us. The counter starts after the START bit of the STARTCNTRL
+    Register is set.
+    The Master device needs to output LP-11 for 100 us in the order for the slave
+    Device to observe LP-11 for the period.
+    For example, in order to set 100 us when the period of HFCLK is 12 ns, the
+    Counter value should be more than 8333.3 = 0x208D (100 us / 12 ns)
+    0x208E.
+    */
    {4, 0x0210, 0x00002C00},
+
+   /*
+    SYSLPTX Timing Generation Counter
+    The counter generates a timing signal for the period of LPTX.
+    This counter is counted using the HSByteClk (the Main Bus clock), and the
+    Value of (setting + 1) * HSByteClk Period becomes the period LPTX. Be sure to
+    Set the counter to a value greater than 50 ns.
+    */
    {4, 0x0214, 0x00000005},
+
+    /*
+    TCLK_ZERO Counter
+    This counter is used for Clock Lane control in the Master mode.
+    In order to satisfy the timing parameter TCLK-PRE + TCLK-ZERO for Clock Lane, this
+    Counter is used.
+    This counter is counted by HSBYTECLk.
+    Set this register in order to set the minimum time (TCLK-PRE + TCLK-ZERO) to a
+    Value greater than 300 ns.
+    The actual value is ((1 to 2) + (TCLK_ZEROCNT + 1)) x HSByteClkCycle + (PHY output
+    Delay.
+    The PHY output delay is about (0 to 1) x HSByteClkCycle in the ByteClk conversion
+    Performed during RTL simulation, and is about (2 to 3) x MIPIBitClk cycle in the
+    BitClk conversion.
+
+    TCLK_PREPARE Counter
+    This counter is used for Clock Lane control in the Master mode.
+    In order to satisfy the timing parameter TCLK-PREPARE for Clock Lane, this counter
+    Is used.
+    This counter is counted by HSBYTECLK.
+    Set TCLK-PREPARE period that is greater than 38 ns but less than 95 ns.
+    Calculating formula (TCLK_PREPARECNT + 1) x HSByteClkCycle
+     */
    {4, 0x0218, 0x00001E06},
+
+   /*
+    TCLK_TRAIL Counter
+    This counter is used for Clock Lane control in Master mode.
+    In order to satisfy the timing parameter about TCLK-TRAIL and TEOT for
+    Clock Lane, this counter is used.
+    This counter is counted by HSBYTECLK.
+    Set this register in order to set TCLK-TRAIL to a value greater than 60 ns and
+    TEOT to a value less than 105 ns + 12 x UI
+    The actual value is (TCLK_TRAILCNT + (1 to 2)) xHSByteClkCycle + (2 + (1 to
+    2)) * HSBYTECLKCycle - (PHY output delay).
+    The PHY output delay is about (0 to 1) xHSByteClkCycle in the ByteClk
+    Conversion performed during RTL simulation, and is about (2 to 3)
+    XMIPIBitClk cycle in the BitClk conversion.
+    */
    {4, 0x021C, 0x00000004},
+
+   /*
+    THS_ZERO Counter
+    This counter is used for Data Lane control in Master mode.
+    In order to satisfy the timing parameter about THS-PREPARE + THS-ZERO for Data
+    Lane, this counter is used.
+    This counter is counted by HSBYTECLK.
+    Set this register to set the (THS-PREPARE + THS-ZERO) period, which should be
+    Greater than (145 ns + 10 x UI) results.
+    The actual value is ((1 to 2) + 1 + (TCLK_ZEROCNT + 1) + (3 to 4)) x ByteClk cycle +
+    HSByteClk x (2 + (1 to 2)) + (PHY delay).
+    The PHY output delay is about (1 to 2) x HSByteClkCycle in the ByteClk conversion
+    Performed during RTL simulation, and is about (8+ (5 to 6)) x MIPIBitClk cycle in
+    BitClk conversion.
+
+    THS_PREPARE Counter
+    This counter is used for Data Lane control in Master mode.
+    In order to satisfy the timing parameter about THS-PREPARE for Data Lane, this
+    Counter is used.
+    This counter is counted by HSBYTECLK.
+    Set this register in order to set the THS-PREPARE period, which should be greater
+    Than (40 ns + 4xUI) and less than (8 5 ns + 6xUI) results.
+    Calculating Formula: (THS_PREPARECNT + 1) x HSByteClkCycle
+    */
    {4, 0x0220, 0x00000406},
+
+   /*
+    TWAKEUP Counter
+    This counter is used to exit ULPS state. Ultra-Low Power State is exited by
+    TWAKEUPCNT
+    [15: 0]
+    Means of a Mark-1 state with a length TWAKEUP followed by a Stop state.
+    This counter is counted by the unit of LPTXTIMECNT.
+    */
    {4, 0x0224, 0x00004988},
+
+   /*
+    TCLK_POST Counter
+    This counter is used for Clock Lane control in Master mode.
+    This counter is counted by the HSByteClk.
+    Set a value greater than (60 ns + 52 x UI) results.
+    The actual value is ((1 to 2) + (TCLK_POSTCNT + 1)) x HSByteClk cycle + (1) x
+    HSBYTECLK cycle.
+    */
    {4, 0x0228, 0x0000000C},
+
+   /*
+    THS_TRAIL Counter
+    This counter is used for Data Lane control in Master mode.
+    This counter is counted by HSBYTECLK.
+    Set a value greater 8 x UI or (60 ns + 4 x UI) and less than TEOT which is
+    105 ns + 12 x UI results.
+    The actual value is (1 + THS_TRAILCNT) xByteClk cycle + ((1 to 2) + 2)
+    XHSBYTECLK cycle - (PHY output delay).
+    The PHY output delay is about (1 to 2) xHSByteClkCycle in ByteClk
+    Conversion performed during RTL simulation and is about (8+ (5 to 6))
+    XMIPIBitClk cycle in BitClk conversion.
+    */
    {4, 0x022C, 0x00000006},
-   {4, 0x0234, 0x00000003},
-   {4, 0x0238, 0x00000001},
+
+   {4, 0x0234, 0x00000003}, // Voltage regulator enable for HSTX Data Lane 0. + Voltage regulator enable for HSTX Clock Lane.
+   {4, 0x0238, 0x00000001}, // Continuous clock mode. Maintains the clock lane output regardless of data lane operation
+
+   /*
+   START control bit of PPI-TX function.
+   By writing 1 to this bit, PPI starts function.
+   0: Stop function. (Default). Writing 0 is invalid and the bit can be set to zero by
+   System reset only.
+   1: Start function.
+   The following registers are set to appropriate value before starting any
+   Transmission by START bit in STARTCTRL register. Once START bit is set to high,
+   The change of the register bits does not affect to function. In order to change
+   The values, initialization by RESET_N is necessary.
+   */
    {4, 0x0204, 0x00000001},//TX PPI starts
-   {4, 0x0518, 0x00000001},
-   {4, 0x0500, 0xA30080A1},
-   {2, 0x0004, 0x0044},
+   {4, 0x0518, 0x00000001}, // CSI start
+   {4, 0x0500, 0xA30080A1}, // LANE_ENA transitions to stop + enable lane1, lane 3
+   {2, 0x0004, 0x0044}, // Parallel port enable + increment i2c address index on each byte transfer
 };
 
 static unsigned int mt9m021_analog_setting[8] = {
@@ -933,17 +1063,19 @@ static int daxc02_bridge_setup(struct i2c_client *client)
         settings = daxc02_buffer_mipi_output[i];
 
         __addr = cpu_to_be16(settings.addr);
+        __data = cpu_to_be32(settings.data);
 
-        if(settings.len == 2) __data = cpu_to_be16(settings.data);
-        else if(settings.len == 4) __data = cpu_to_be32(settings.data);
-        else return -EINVAL;
+        if(settings.len == 2) dev_dbg(&client->dev, "before %04x, after %04x", settings.data, __data);
+        else if(settings.len == 4) dev_dbg(&client->dev, "before %08x, after %08x", settings.data, __data);
 
-        buf[0] = __addr & 0xff;
-        buf[1] = __addr >> 8;
-        buf[2] = __data & 0xff;
-        buf[3] = (__data >> 8) & 0xff;
-        buf[4] = (__data >> 16) & 0xff;
-        buf[5] = (__data >> 24) & 0xff;
+        buf[0] = (uint8_t)(__addr);
+        buf[1] = (uint8_t)(__addr >> 8);
+
+        buf[2] = (uint8_t)(__data >> 16);
+        buf[3] = (uint8_t)(__data >> 24);
+
+        buf[4] = (uint8_t)(__data);
+        buf[5] = (uint8_t)(__data >> 8);
 
         msg[0].addr  = BRIDGE_I2C_ADDR;
         msg[0].flags = 0;
@@ -964,7 +1096,7 @@ static int daxc02_bridge_setup(struct i2c_client *client)
         msg[0].addr     = BRIDGE_I2C_ADDR;
         msg[0].flags    = 0;
         msg[0].len      = 2;
-        msg[0].buf      = (uint8_t *)&__addr;
+        msg[0].buf      = buf;
 
         msg[1].addr     = BRIDGE_I2C_ADDR;
         msg[1].flags    = I2C_M_RD; // 1
@@ -980,7 +1112,7 @@ static int daxc02_bridge_setup(struct i2c_client *client)
         }
 
         if(settings.len == 2) dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], settings.addr);
-        else dev_dbg(&client->dev, "%s: 0x%02x%02x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], buf[2], buf[3], settings.addr);
+        else dev_dbg(&client->dev, "%s: 0x%02x%02x%02x%02x from 0x%04x\n", __func__, buf[2], buf[3], buf[0], buf[1], settings.addr);
     }
 
     return ret;
