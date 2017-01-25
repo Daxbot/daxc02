@@ -49,6 +49,7 @@ i2c6 = "/host1x/i2c@546c0000";
             };   
         };
         i2c@546c0000 {
+            status = "okay";
             #address-cells = <1>;
             #size-cells = <0>;
             
@@ -71,6 +72,9 @@ i2c6 = "/host1x/i2c@546c0000";
                 sensor_model ="mt9m021";
 
                 /* input clock for the device in MHz*/
+                clocks = <&tegra_car TEGRA210_CLK_ID_CLK_OUT_3>;
+				clock-names = "mclk";
+				clock-frequency = <24000000>;
                 mclk = "cam_mclk1";
 
                 /* Define any required hw resources needed by driver */
@@ -175,7 +179,7 @@ i2c6 = "/host1x/i2c@546c0000";
                 mode0 {
                     mclk_khz = "24000";
                     num_lanes = "4";
-                    tegra_sinterface = "serial_c";
+                    tegra_sinterface = "serial_a";
                     discontinuous_clk = "no";
                     dpcm_enable = "false";
                     cil_settletime = "0";
@@ -230,9 +234,9 @@ i2c6 = "/host1x/i2c@546c0000";
                 	status = "okay";
                 };
                 drivernode1 {
-                    status = "okay";
+                    status = "disabled";
                     pcl_id = "v4l2_focuser_stub";
-                    proc-device-tree = [00];
+                    proc-device-tree = "";
                 };
             };
         };
