@@ -1065,9 +1065,6 @@ static int daxc02_bridge_setup(struct i2c_client *client)
         __addr = cpu_to_be16(settings.addr);
         __data = cpu_to_be32(settings.data);
 
-        if(settings.len == 2) dev_dbg(&client->dev, "before %04x, after %04x", settings.data, __data);
-        else if(settings.len == 4) dev_dbg(&client->dev, "before %08x, after %08x", settings.data, __data);
-
         buf[0] = (uint8_t)(__addr);
         buf[1] = (uint8_t)(__addr >> 8);
 
@@ -1092,27 +1089,6 @@ static int daxc02_bridge_setup(struct i2c_client *client)
             dev_err(&client->dev, "%s failed at 0x%04x error %d\n", __func__, settings.addr, ret);
             break;
         }
-
-        msg[0].addr     = BRIDGE_I2C_ADDR;
-        msg[0].flags    = 0;
-        msg[0].len      = 2;
-        msg[0].buf      = buf;
-
-        msg[1].addr     = BRIDGE_I2C_ADDR;
-        msg[1].flags    = I2C_M_RD; // 1
-        msg[1].len      = settings.len;
-        msg[1].buf      = buf;
-
-        ret = i2c_transfer(client->adapter, msg, 2);
-
-        if (ret < 0)
-        {
-            dev_err(&client->dev, "%s: read failed at 0x%04x error %d\n", __func__, settings.addr, ret);
-            break;
-        }
-
-        if(settings.len == 2) dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], settings.addr);
-        else dev_dbg(&client->dev, "%s: 0x%02x%02x%02x%02x from 0x%04x\n", __func__, buf[2], buf[3], buf[0], buf[1], settings.addr);
     }
 
     return ret;
