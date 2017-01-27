@@ -42,7 +42,7 @@ i2c6 = "/host1x/i2c@546c0000";
                     daxc02_vi_in0: endpoint {
                         status = "okay";
                         csi-port = <0x0>;
-                        bus-width = <0x4>;
+                        bus-width = <0x1>;
                         remote-endpoint = <&daxc02_out0>;
                     };
                 };      
@@ -211,7 +211,7 @@ i2c6 = "/host1x/i2c@546c0000";
                         reg = <0x0>;
                         daxc02_out0: endpoint {
                             csi-port = <0x0>;
-                            bus-width = <0x4>;
+                            bus-width = <0x1>;
                             remote-endpoint = <&daxc02_vi_in0>;
                         };
                     };

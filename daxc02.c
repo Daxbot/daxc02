@@ -187,8 +187,11 @@ struct daxc02_buffer_settings daxc02_buffer_mipi_output[27] = {
    {4, 0x0140, 0x00000000}, // Clock lane, bypass lane enable
    {4, 0x0144, 0x00000000}, // Data lane 0, bypass lane enable
    {4, 0x0148, 0x00000001}, // Data lane 1, lane disable
+   //{4, 0x0148, 0x00000000}, // Data lane 1, bypass lane enable
    {4, 0x014C, 0x00000001}, // Data lane 2, lane disable
+   //{4, 0x014C, 0x00000000}, // Data lane 2, bypass lane enable
    {4, 0x0150, 0x00000001}, // Data lane 3, lane disable
+   //{4, 0x0150, 0x00000000}, // Data lane 3, bypass lane enable
 
    /*
     Line Initialization Wait Counter
@@ -1446,7 +1449,9 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
-
+    // Test pattern
+    //ret = mt9m021_write(client, MT9M021_TEST_PATTERN, 2);
+    //if(ret < 0) return ret;
 
     /* start streaming */
     //return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
