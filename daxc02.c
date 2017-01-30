@@ -1,15 +1,19 @@
 /*
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Based on Aptina MT9M021 sensor driver for the Beagleboard
+ * Original Contributor Prashanth Subramanya <sprashanth@aptina.com>
+ * Original Copyright (C) 2013 Aptina Imaging
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * Adapted for the NVIDIA Jetson TX1 by Wilkins White <ww@novadynamics.com>
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
 
 #define DEBUG 1
@@ -41,7 +45,7 @@
 
 #define BRIDGE_I2C_ADDR                 0x0e
 #define MT9M021_I2C_ADDR                0x10
-#define MT9M021_EXT_FREQ                20250000
+#define MT9M021_EXT_FREQ                24000000
 #define MT9M021_TARGET_FREQ             74250000
 
 #define MT9M021_PIXEL_ARRAY_WIDTH       1280
@@ -127,7 +131,7 @@
 
 #define MT9M021_GLOBAL_GAIN_MIN         0x00
 #define MT9M021_GLOBAL_GAIN_MAX         0xFF
-#define MT9M021_GLOBAL_GAIN_DEF         0x20
+#define MT9M021_GLOBAL_GAIN_DEF         0x0F
 
 #define MT9M021_EXPOSURE_MIN            1
 #define MT9M021_EXPOSURE_MAX            0x02A0
@@ -855,14 +859,6 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     usleep_range(5, 10);
     if (pw->iovdd) err = regulator_enable(pw->iovdd);   // 1.8V
     if (err) goto daxc02_iovdd_fail;
-
-    /* a power on reset is generated after core power becomes stable */
-    usleep_range(2000, 2010);
-
-    /* soft reset */
-    err = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_RESET);
-    if(err < 0) return err;
-    msleep(200);
 
     usleep_range(1350, 1360);
 
@@ -1896,8 +1892,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         return -EIO;
     }
 
-    mt9m021_pdata->ext_freq     = 24000000;
-    mt9m021_pdata->target_freq  = 74250000;
+    mt9m021_pdata->ext_freq     = MT9M021_EXT_FREQ;
+    mt9m021_pdata->target_freq  = MT9M021_TARGET_FREQ;
     mt9m021_pdata->version      = MT9M021_COLOR_VERSION;
 
     common_data->ops            = &daxc02_common_ops;
@@ -1940,6 +1936,12 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     if (err) return err;
 
     daxc02_power_on(common_data);
+
+    /* soft reset */
+    err = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_RESET);
+    if(err < 0) return err;
+    msleep(200);
+
     data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
     if (data != MT9M021_CHIP_ID)
     {
