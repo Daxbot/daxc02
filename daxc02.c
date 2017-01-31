@@ -106,6 +106,7 @@
 #define MT9M021_BINNING_DEF             0x0020
 
 #define MT9M021_AE_CTRL_REG             0x3100
+#define MT9M021_AE_LUMA_TARGET_REG      0x3102
 #define MT9M021_EMBEDDED_DATA_CTRL      0x3064
 
 #define MT9M021_GREEN1_GAIN             0x3056
@@ -131,7 +132,7 @@
 
 #define MT9M021_GLOBAL_GAIN_MIN         0x00
 #define MT9M021_GLOBAL_GAIN_MAX         0xFF
-#define MT9M021_GLOBAL_GAIN_DEF         0x0F
+#define MT9M021_GLOBAL_GAIN_DEF         0xF0
 
 #define MT9M021_EXPOSURE_MIN            1
 #define MT9M021_EXPOSURE_MAX            0x02A0
@@ -171,175 +172,6 @@ static unsigned int mt9m021_seq_data[133] = {
     0x2500, 0x1027, 0x0010, 0x2F6F, 0x0F3E, 0x2500, 0x0827, 0x0008,
     0x3066, 0x3225, 0x0008, 0x2700, 0x0830, 0x6631, 0x3D64, 0x2508,
     0x083D, 0xFF3D, 0x2A27, 0x083F, 0x2C00
-};
-
-struct daxc02_buffer_settings {
-    uint8_t len;
-    uint16_t addr;
-    uint32_t data;
-};
-
-struct daxc02_buffer_settings daxc02_buffer_mipi_output[27] = {
-   {2, 0x0004, 0x0004}, // Parallel Data Format mode0 + PCLK Inverted
-   {2, 0x0002, 0x0001}, // reset 1
-   {2, 0x0002, 0x0000}, // reset 0
-   {2, 0x0016, 0x50F9}, // set the input and feedback frequency division ratio
-   {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
-   {2, 0x0006, 0x0030}, // FIFO level 3
-   {2, 0x0008, 0x0020}, // data format RAW12
-   {2, 0x0022, 0x0780}, // word count (bytes per line)
-   {4, 0x0140, 0x00000000}, // Clock lane, bypass lane enable
-   {4, 0x0144, 0x00000000}, // Data lane 0, bypass lane enable
-   {4, 0x0148, 0x00000001}, // Data lane 1, lane disable
-   //{4, 0x0148, 0x00000000}, // Data lane 1, bypass lane enable
-   {4, 0x014C, 0x00000001}, // Data lane 2, lane disable
-   //{4, 0x014C, 0x00000000}, // Data lane 2, bypass lane enable
-   {4, 0x0150, 0x00000001}, // Data lane 3, lane disable
-   //{4, 0x0150, 0x00000000}, // Data lane 3, bypass lane enable
-
-   /*
-    Line Initialization Wait Counter
-    This counter is used for line initialization.
-    Set this register before setting [STARTCNTRL] .START = 1.
-    MIPI specification requires that the slave device needs to observe LP-11 for
-    100 us and ignore the received data before the period at initialization time.
-    The count value depends on HFCLK and the value needs to be set to achieve
-    More than 100 us. The counter starts after the START bit of the STARTCNTRL
-    Register is set.
-    The Master device needs to output LP-11 for 100 us in the order for the slave
-    Device to observe LP-11 for the period.
-    For example, in order to set 100 us when the period of HFCLK is 12 ns, the
-    Counter value should be more than 8333.3 = 0x208D (100 us / 12 ns)
-    0x208E.
-    */
-   {4, 0x0210, 0x00002C00},
-
-   /*
-    SYSLPTX Timing Generation Counter
-    The counter generates a timing signal for the period of LPTX.
-    This counter is counted using the HSByteClk (the Main Bus clock), and the
-    Value of (setting + 1) * HSByteClk Period becomes the period LPTX. Be sure to
-    Set the counter to a value greater than 50 ns.
-    */
-   {4, 0x0214, 0x00000005},
-
-    /*
-    TCLK_ZERO Counter
-    This counter is used for Clock Lane control in the Master mode.
-    In order to satisfy the timing parameter TCLK-PRE + TCLK-ZERO for Clock Lane, this
-    Counter is used.
-    This counter is counted by HSBYTECLk.
-    Set this register in order to set the minimum time (TCLK-PRE + TCLK-ZERO) to a
-    Value greater than 300 ns.
-    The actual value is ((1 to 2) + (TCLK_ZEROCNT + 1)) x HSByteClkCycle + (PHY output
-    Delay.
-    The PHY output delay is about (0 to 1) x HSByteClkCycle in the ByteClk conversion
-    Performed during RTL simulation, and is about (2 to 3) x MIPIBitClk cycle in the
-    BitClk conversion.
-
-    TCLK_PREPARE Counter
-    This counter is used for Clock Lane control in the Master mode.
-    In order to satisfy the timing parameter TCLK-PREPARE for Clock Lane, this counter
-    Is used.
-    This counter is counted by HSBYTECLK.
-    Set TCLK-PREPARE period that is greater than 38 ns but less than 95 ns.
-    Calculating formula (TCLK_PREPARECNT + 1) x HSByteClkCycle
-     */
-   {4, 0x0218, 0x00001E06},
-
-   /*
-    TCLK_TRAIL Counter
-    This counter is used for Clock Lane control in Master mode.
-    In order to satisfy the timing parameter about TCLK-TRAIL and TEOT for
-    Clock Lane, this counter is used.
-    This counter is counted by HSBYTECLK.
-    Set this register in order to set TCLK-TRAIL to a value greater than 60 ns and
-    TEOT to a value less than 105 ns + 12 x UI
-    The actual value is (TCLK_TRAILCNT + (1 to 2)) xHSByteClkCycle + (2 + (1 to
-    2)) * HSBYTECLKCycle - (PHY output delay).
-    The PHY output delay is about (0 to 1) xHSByteClkCycle in the ByteClk
-    Conversion performed during RTL simulation, and is about (2 to 3)
-    XMIPIBitClk cycle in the BitClk conversion.
-    */
-   {4, 0x021C, 0x00000004},
-
-   /*
-    THS_ZERO Counter
-    This counter is used for Data Lane control in Master mode.
-    In order to satisfy the timing parameter about THS-PREPARE + THS-ZERO for Data
-    Lane, this counter is used.
-    This counter is counted by HSBYTECLK.
-    Set this register to set the (THS-PREPARE + THS-ZERO) period, which should be
-    Greater than (145 ns + 10 x UI) results.
-    The actual value is ((1 to 2) + 1 + (TCLK_ZEROCNT + 1) + (3 to 4)) x ByteClk cycle +
-    HSByteClk x (2 + (1 to 2)) + (PHY delay).
-    The PHY output delay is about (1 to 2) x HSByteClkCycle in the ByteClk conversion
-    Performed during RTL simulation, and is about (8+ (5 to 6)) x MIPIBitClk cycle in
-    BitClk conversion.
-
-    THS_PREPARE Counter
-    This counter is used for Data Lane control in Master mode.
-    In order to satisfy the timing parameter about THS-PREPARE for Data Lane, this
-    Counter is used.
-    This counter is counted by HSBYTECLK.
-    Set this register in order to set the THS-PREPARE period, which should be greater
-    Than (40 ns + 4xUI) and less than (8 5 ns + 6xUI) results.
-    Calculating Formula: (THS_PREPARECNT + 1) x HSByteClkCycle
-    */
-   {4, 0x0220, 0x00000406},
-
-   /*
-    TWAKEUP Counter
-    This counter is used to exit ULPS state. Ultra-Low Power State is exited by
-    TWAKEUPCNT
-    [15: 0]
-    Means of a Mark-1 state with a length TWAKEUP followed by a Stop state.
-    This counter is counted by the unit of LPTXTIMECNT.
-    */
-   {4, 0x0224, 0x00004988},
-
-   /*
-    TCLK_POST Counter
-    This counter is used for Clock Lane control in Master mode.
-    This counter is counted by the HSByteClk.
-    Set a value greater than (60 ns + 52 x UI) results.
-    The actual value is ((1 to 2) + (TCLK_POSTCNT + 1)) x HSByteClk cycle + (1) x
-    HSBYTECLK cycle.
-    */
-   {4, 0x0228, 0x0000000C},
-
-   /*
-    THS_TRAIL Counter
-    This counter is used for Data Lane control in Master mode.
-    This counter is counted by HSBYTECLK.
-    Set a value greater 8 x UI or (60 ns + 4 x UI) and less than TEOT which is
-    105 ns + 12 x UI results.
-    The actual value is (1 + THS_TRAILCNT) xByteClk cycle + ((1 to 2) + 2)
-    XHSBYTECLK cycle - (PHY output delay).
-    The PHY output delay is about (1 to 2) xHSByteClkCycle in ByteClk
-    Conversion performed during RTL simulation and is about (8+ (5 to 6))
-    XMIPIBitClk cycle in BitClk conversion.
-    */
-   {4, 0x022C, 0x00000006},
-
-   {4, 0x0234, 0x00000003}, // Voltage regulator enable for HSTX Data Lane 0. + Voltage regulator enable for HSTX Clock Lane.
-   {4, 0x0238, 0x00000001}, // Continuous clock mode. Maintains the clock lane output regardless of data lane operation
-
-   /*
-   START control bit of PPI-TX function.
-   By writing 1 to this bit, PPI starts function.
-   0: Stop function. (Default). Writing 0 is invalid and the bit can be set to zero by
-   System reset only.
-   1: Start function.
-   The following registers are set to appropriate value before starting any
-   Transmission by START bit in STARTCTRL register. Once START bit is set to high,
-   The change of the register bits does not affect to function. In order to change
-   The values, initialization by RESET_N is necessary.
-   */
-   {4, 0x0204, 0x00000001},//TX PPI starts
-   {4, 0x0518, 0x00000001}, // CSI start
-   {4, 0x0500, 0xA30080A1}, // LANE_ENA transitions to stop + enable lane1, lane 3
-   {2, 0x0004, 0x0044}, // Parallel port enable + increment i2c address index on each byte transfer
 };
 
 static unsigned int mt9m021_analog_setting[8] = {
@@ -411,6 +243,45 @@ static const char * const mt9m021_test_pattern_menu[] = {
     "2:color bar test pattern",
     "3:Fade to gray color bar test pattern",
     "256:Walking 1s test pattern (12 bit)"
+};
+
+/***************************************************
+        TC358746AXBG MIPI Defines
+****************************************************/
+
+struct daxc02_mipi_settings {
+    uint8_t len;
+    uint16_t addr;
+    uint32_t data;
+};
+
+struct daxc02_mipi_settings daxc02_mipi_output[] = {
+   {2, 0x0004, 0x0004},
+   {2, 0x0002, 0x0001}, // reset 1
+   {2, 0x0002, 0x0000}, // reset 0
+   {2, 0x0016, 0x50F9}, // set the input and feedback frequency division ratio
+   {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
+   {2, 0x0006, 0x0030}, // FIFO level 3
+   {2, 0x0008, 0x0020}, // data format RAW12
+   {2, 0x0022, 0x0780}, // word count (bytes per line)
+   {4, 0x0210, 0x00002C00},
+   {4, 0x0214, 0x00000005},
+   {4, 0x0218, 0x00001E06},
+   {4, 0x021C, 0x00000004},
+   {4, 0x0220, 0x00000406},
+   {4, 0x0224, 0x00004988},
+   {4, 0x0228, 0x0000000C},
+   {4, 0x022C, 0x00000006},
+   {4, 0x0234, 0x0000001F}, // Voltage regulator enable for data 0-3 and clock lanes.
+   {4, 0x0238, 0x00000001}, // Continuous clock mode. Maintains the clock lane output regardless of data lane operation
+   {4, 0x0518, 0x00000001}, // CSI start
+
+   {4, 0x0500, 0xA30080A1}, // 1 data lane
+   //{4, 0x0500, 0xA30080A3}, // 2 data lanes?
+   //{4, 0x0500, 0xA30080A7}, // 4 data lanes?
+
+   {4, 0x0204, 0x00000001}, // TX PPI starts
+   {2, 0x0004, 0x0044},
 };
 
 
@@ -591,34 +462,6 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             if(ret < 0) return ret;
             break;
 
-        case V4L2_CID_FRAME_LENGTH:
-            dev_err(&client->dev, "%s: V4L2_CID_FRAME_LENGTH not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_COARSE_TIME:
-            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_COARSE_TIME_SHORT:
-            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME_SHORT not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_GROUP_HOLD:
-            dev_err(&client->dev, "%s: V4L2_CID_GROUP_HOLD not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_HDR_EN:
-            dev_err(&client->dev, "%s: V4L2_CID_HDR_EN not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_OTP_DATA:
-            dev_err(&client->dev, "%s: V4L2_CID_OTP_DATA not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_FUSE_ID:
-            dev_err(&client->dev, "%s: V4L2_CID_FUSE_ID not implemented.\n", __func__);
-            break;
-
         default:
             dev_err(&client->dev, "%s: unknown ctrl id.\n", __func__);
             return -EINVAL;
@@ -735,91 +578,49 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .def            = MT9M021_ANALOG_GAIN_DEF,
         .flags          = 0,
     },
-    // Begin not implemented controls
     {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_FRAME_LENGTH,
-        .name = "Frame Length",
-        .type = V4L2_CTRL_TYPE_INTEGER,
-        .flags = V4L2_CTRL_FLAG_SLIDER,
-        .min = 0,
-        .max = 0x7fff,
-        .def = 0x07C0,
-        .step = 1,
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_EXPOSURE,
+        .name           = "Exposure",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = 0,
+        .min            = MT9M021_EXPOSURE_MIN,
+        .max            = MT9M021_EXPOSURE_MAX,
+        .def            = MT9M021_EXPOSURE_DEF,
+        .step           = 1,
     },
     {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_COARSE_TIME,
-        .name = "Coarse Time",
-        .type = V4L2_CTRL_TYPE_INTEGER,
-        .flags = V4L2_CTRL_FLAG_SLIDER,
-        .min = 0x0002,
-        .max = 0x7ff9,
-        .def = 0x7fba,
-        .step = 1,
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_EXPOSURE_AUTO,
+        .name           = "Auto Exposure",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = 0,
+        .min            = V4L2_EXPOSURE_MANUAL,
+        .max            = V4L2_EXPOSURE_SHUTTER_PRIORITY,
+        .def            = V4L2_EXPOSURE_MANUAL,
+        .step           = 1,
     },
     {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_COARSE_TIME_SHORT,
-        .name = "Coarse Time Short",
-        .type = V4L2_CTRL_TYPE_INTEGER,
-        .flags = V4L2_CTRL_FLAG_SLIDER,
-        .min = 0x0002,
-        .max = 0x7ff9,
-        .def = 0x7fba,
-        .step = 1,
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_HFLIP,
+        .name           = "Horizontal Flip",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = 0,
+        .min            = 0,
+        .max            = 1,
+        .def            = 0,
+        .step           = 1,
     },
     {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_GROUP_HOLD,
-        .name = "Group Hold",
-        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
-        .min = 0,
-        .max = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
-        .menu_skip_mask = 0,
-        .def = 0,
-        .qmenu_int = switch_ctrl_qmenu,
-    },
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_HDR_EN,
-        .name = "HDR enable",
-        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
-        .min = 0,
-        .max = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
-        .menu_skip_mask = 0,
-        .def = 0,
-        .qmenu_int = switch_ctrl_qmenu,
-    },
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_EEPROM_DATA,
-        .name = "EEPROM Data",
-        .type = V4L2_CTRL_TYPE_STRING,
-        .flags = V4L2_CTRL_FLAG_VOLATILE,
-        .min = 0,
-        .max = 2048,
-        .step = 2,
-    },
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_OTP_DATA,
-        .name = "OTP Data",
-        .type = V4L2_CTRL_TYPE_STRING,
-        .flags = V4L2_CTRL_FLAG_READ_ONLY,
-        .min = 0,
-        .max = 1024,
-        .step = 2,
-    },
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_FUSE_ID,
-        .name = "Fuse ID",
-        .type = V4L2_CTRL_TYPE_STRING,
-        .flags = V4L2_CTRL_FLAG_READ_ONLY,
-        .min = 0,
-        .max = 16,
-        .step = 2,
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_VFLIP,
+        .name           = "Vertical Flip",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = 0,
+        .min            = 0,
+        .max            = 1,
+        .def            = 0,
+        .step           = 1,
     },
 };
 
@@ -835,7 +636,7 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     struct camera_common_power_rail *pw = &priv->power;
     struct i2c_client *client = s_data->i2c_client;
 
-    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (priv->pdata && priv->pdata->power_on)
     {
@@ -1051,15 +852,15 @@ static int daxc02_bridge_setup(struct i2c_client *client)
 {
     struct i2c_msg msg[2];
     uint8_t buf[6];
-    struct daxc02_buffer_settings settings;
+    struct daxc02_mipi_settings settings;
     uint16_t __addr;
     uint32_t __data;
     int ret;
     uint8_t i;
 
-    for(i = 0; i < ARRAY_SIZE(daxc02_buffer_mipi_output); i++)
+    for(i = 0; i < ARRAY_SIZE(daxc02_mipi_output); i++)
     {
-        settings = daxc02_buffer_mipi_output[i];
+        settings = daxc02_mipi_output[i];
 
         __addr = cpu_to_be16(settings.addr);
         __data = cpu_to_be32(settings.data);
