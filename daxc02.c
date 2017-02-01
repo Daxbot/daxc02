@@ -1,21 +1,3 @@
-/*
- * Based on Aptina MT9M021 sensor driver for the Beagleboard
- * Original Contributor Prashanth Subramanya <sprashanth@aptina.com>
- * Original Copyright (C) 2013 Aptina Imaging
- *
- * Adapted for the NVIDIA Jetson TX1 by Wilkins White <ww@novadynamics.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
-
 #define DEBUG 1
 
 #include <linux/device.h>
@@ -37,38 +19,11 @@
 #include <stdbool.h>
 #include <linux/kernel.h>
 
-#include "mt9m021_mode_tbls.h"
-
 /***************************************************
-        MT9M021 Defines
+        MT9M021 Registers
 ****************************************************/
 
-#define BRIDGE_I2C_ADDR                 0x0e
-#define MT9M021_I2C_ADDR                0x10
-#define MT9M021_EXT_FREQ                24000000
-#define MT9M021_TARGET_FREQ             74250000
-
-#define MT9M021_PIXEL_ARRAY_WIDTH       1280
-#define MT9M021_PIXEL_ARRAY_HEIGHT      960
-
-#define MT9M021_ROW_START_MIN           0
-#define MT9M021_ROW_START_MAX           960
-#define MT9M021_ROW_START_DEF           0x0078
-#define MT9M021_COLUMN_START_MIN        0
-#define MT9M021_COLUMN_START_MAX        1280
-#define MT9M021_COLUMN_START_DEF        0
-#define MT9M021_WINDOW_HEIGHT_MIN       2
-#define MT9M021_WINDOW_HEIGHT_MAX       720
-#define MT9M021_WINDOW_HEIGHT_DEF       720
-#define MT9M021_WINDOW_WIDTH_MIN        2
-#define MT9M021_WINDOW_WIDTH_MAX        1280
-#define MT9M021_WINDOW_WIDTH_DEF        1280
-#define MT9M021_ENABLE                  1
-#define MT9M021_DISABLE                 0
-
 #define MT9M021_CHIP_ID_REG             0x3000
-#define MT9M021_CHIP_ID                 0x2401
-
 #define MT9M021_RESET_REG               0x301A
 #define MT9M021_SEQ_CTRL_PORT           0x3088
 #define MT9M021_SEQ_DATA_PORT           0x3086
@@ -98,11 +53,7 @@
 #define MT9M021_Y_ODD_INC               0x30A6
 #define MT9M021_READ_MODE               0x3040
 #define MT9M021_TEST_PATTERN            0x3070
-#define MT9M021_LLP_RECOMMENDED         1650
 #define MT9M021_DIGITAL_BINNING         0x3032
-#define MT9M021_HOR_AND_VER_BIN         0x0022
-#define MT9M021_HOR_BIN                 0x0011
-#define MT9M021_DISABLE_BINNING         0x0000
 #define MT9M021_BINNING_DEF             0x0020
 
 #define MT9M021_AE_CTRL_REG             0x3100
@@ -119,6 +70,39 @@
 #define MT9M021_RED_GAIN_CB             0x30C0
 #define MT9M021_GREEN2_GAIN_CB          0x30C2
 #define MT9M021_GLOBAL_GAIN_CB          0x30C4
+
+
+/***************************************************
+        MT9M021 Defines
+****************************************************/
+
+#define BRIDGE_I2C_ADDR                 0x0e
+#define MT9M021_I2C_ADDR                0x10
+#define MT9M021_CHIP_ID                 0x2401
+
+#define MT9M021_PIXEL_ARRAY_WIDTH       1280
+#define MT9M021_PIXEL_ARRAY_HEIGHT      960
+#define MT9M021_LLP_RECOMMENDED         1650
+
+#define MT9M021_EXT_FREQ                24000000
+#define MT9M021_TARGET_FREQ             74250000
+#define MT9M021_PLL_M                   99
+#define MT9M021_PLL_N                   4
+#define MT9M021_PLL_P1                  1
+#define MT9M021_PLL_P2                  4
+
+#define MT9M021_ROW_START_MIN           0
+#define MT9M021_ROW_START_MAX           960
+#define MT9M021_ROW_START_DEF           0x0078
+#define MT9M021_COLUMN_START_MIN        0
+#define MT9M021_COLUMN_START_MAX        1280
+#define MT9M021_COLUMN_START_DEF        0
+#define MT9M021_WINDOW_HEIGHT_MIN       2
+#define MT9M021_WINDOW_HEIGHT_MAX       720
+#define MT9M021_WINDOW_HEIGHT_DEF       720
+#define MT9M021_WINDOW_WIDTH_MIN        2
+#define MT9M021_WINDOW_WIDTH_MAX        1280
+#define MT9M021_WINDOW_WIDTH_DEF        1280
 
 #define MT9M021_RESET                   0x00D9
 #define MT9M021_STREAM_OFF              0x00D8
@@ -138,23 +122,8 @@
 #define MT9M021_EXPOSURE_MAX            0x02A0
 #define MT9M021_EXPOSURE_DEF            0x0100
 
-#define V4L2_CID_GAIN_RED           (V4L2_CID_USER_BASE | 0x1001)
-#define V4L2_CID_GAIN_GREEN1        (V4L2_CID_USER_BASE | 0x1002)
-#define V4L2_CID_GAIN_GREEN2        (V4L2_CID_USER_BASE | 0x1003)
-#define V4L2_CID_GAIN_BLUE          (V4L2_CID_USER_BASE | 0x1004)
-#define V4L2_CID_ANALOG_GAIN        (V4L2_CID_USER_BASE | 0x1005)
 
-enum {
-    MT9M021_COLOR_VERSION,
-    MT9M021_MONOCHROME_VERSION,
-};
-
-struct mt9m021_frame_size {
-    uint16_t width;
-    uint16_t height;
-};
-
-static unsigned int mt9m021_seq_data[133] = {
+static unsigned int mt9m021_seq_data[] = {
     0x3227, 0x0101, 0x0F25, 0x0808, 0x0227, 0x0101, 0x0837, 0x2700,
     0x0138, 0x2701, 0x013A, 0x2700, 0x0125, 0x0020, 0x3C25, 0x0040,
     0x3427, 0x003F, 0x2500, 0x2037, 0x2540, 0x4036, 0x2500, 0x4031,
@@ -178,71 +147,16 @@ static unsigned int mt9m021_analog_setting[8] = {
     0x00FD, 0x0FFF, 0x0003, 0xF87A, 0xE075, 0x077C, 0xA4EB, 0xD208
 };
 
-/*
- * struct mt9m021_platform_data - MT9M021 platform data
- * @ext_freq: Input clock frequency
- * @target_freq: Pixel clock frequency
- * @version: color or monochrome
- */
-struct mt9m021_platform_data {
-    int ext_freq;
-    int target_freq;
-    int version;
+enum {
+    MT9M021_DEFAULT_MODE
 };
 
-/**
- * PLL Dividers
- *
- * Calculated according to the following formula:
- *
- *    target_freq = (ext_freq x M) / (N x P1 x P2)
- *    VCO_freq    = (ext_freq x M) / N
- *
- * And subject to the following limitations:
- *
- *    Limitations of PLL parameters
- *    -----------------------------
- *    32        >=  M           >=  384
- *    1         >=  N           >=  64
- *    1         >=  P1          >=  16
- *    4         >=  P2          >=  16
- *    384MHz    >=  VCO_freq    >=  768MHz
- *
- */
-struct mt9m021_pll_divs {
-    uint32_t ext_freq;
-    uint32_t target_freq;
-    uint16_t m;
-    uint16_t n;
-    uint16_t p1;
-    uint16_t p2;
+static const int mt9m021_60fps[] = {
+    60,
 };
 
-
-static struct mt9m021_pll_divs mt9m021_divs[] = {
-    /* ext_freq     target_freq     M       N       p1      p2 */
-    {20250000,      74250000,       44,     2,      1,      6},
-    {24000000,      48000000,       32,     2,      2,      4},
-    {24000000,      66000000,       44,     2,      2,      4},
-    {24000000,      74250000,       99,     4,      1,      8},
-    {27000000,      74250000,       44,     2,      1,      8},
-    {48000000,      48000000,       40,     5,      2,      4}
-};
-
-/*
-MT9M021_TEST_PATTERN
-0 = Disabled. Normal operation. Generate output data from pixel array
-1 = Solid color test pattern",
-2 = color bar test pattern",
-3 = Fade to gray color bar test pattern",
-256 = Walking 1s test pattern (12 bit)"
-*/
-static const char * const mt9m021_test_pattern_menu[] = {
-    "0:Disabled",
-    "1:Solid color test pattern",
-    "2:color bar test pattern",
-    "3:Fade to gray color bar test pattern",
-    "256:Walking 1s test pattern (12 bit)"
+static const struct camera_common_frmfmt mt9m021_frmfmt[] = {
+    {{1280, 960},   mt9m021_60fps,  1, 0,   MT9M021_DEFAULT_MODE},
 };
 
 /***************************************************
@@ -304,8 +218,6 @@ struct daxc02 {
 
     struct v4l2_rect                    crop;  /* Sensor window */
     struct v4l2_mbus_framefmt           format;
-    struct mt9m021_platform_data        *mt9m021_pdata;
-    struct mt9m021_pll_divs             *pll;
     int                                 power_count;
     enum v4l2_exposure_auto_type        autoexposure;
 
@@ -323,14 +235,12 @@ static int daxc02_power_off(struct camera_common_data *s_data);
 static int daxc02_power_put(struct daxc02 *priv);
 static int daxc02_power_get(struct daxc02 *priv);
 static inline int mt9m021_read(struct i2c_client *client, uint16_t addr);
-static inline int mt9m021_read_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t *val);
 static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val);
-static int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t val);
 static int daxc02_bridge_setup(struct i2c_client *client);
 static int mt9m021_sequencer_settings(struct i2c_client *client);
 static int mt9m021_col_correction(struct i2c_client *client);
 static int mt9m021_rev2_settings(struct i2c_client *client);
-static int mt9m021_pll_setup(struct i2c_client *client);
+static int mt9m021_pll_setup(struct i2c_client *client, uint16_t m, uint8_t n, uint8_t p1, uint8_t p2);
 static int mt9m021_set_size(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
 static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode );
@@ -353,6 +263,28 @@ static int daxc02_remove(struct i2c_client *client);
 /***************************************************
         V4L2 Control Configuration
 ****************************************************/
+
+#define V4L2_CID_GAIN_RED           (V4L2_CID_USER_BASE | 0x1001)
+#define V4L2_CID_GAIN_GREEN1        (V4L2_CID_USER_BASE | 0x1002)
+#define V4L2_CID_GAIN_GREEN2        (V4L2_CID_USER_BASE | 0x1003)
+#define V4L2_CID_GAIN_BLUE          (V4L2_CID_USER_BASE | 0x1004)
+#define V4L2_CID_ANALOG_GAIN        (V4L2_CID_USER_BASE | 0x1005)
+
+/*
+MT9M021_TEST_PATTERN
+0 = Disabled. Normal operation. Generate output data from pixel array
+1 = Solid color test pattern",
+2 = color bar test pattern",
+3 = Fade to gray color bar test pattern",
+256 = Walking 1s test pattern (12 bit)"
+*/
+static const char * const mt9m021_test_pattern_menu[] = {
+    "0:Disabled",
+    "1:Solid color test pattern",
+    "2:color bar test pattern",
+    "3:Fade to gray color bar test pattern",
+    "256:Walking 1s test pattern (12 bit)"
+};
 
 static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -470,30 +402,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
     return ret;
 }
 
-static int daxc02_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-    struct daxc02 *priv = container_of(ctrl->handler, struct daxc02, ctrl_handler);
-    int err = 0;
-    struct i2c_client *client = v4l2_get_subdevdata(priv->subdev);
-
-    if (priv->power.state == SWITCH_OFF)
-        return 0;
-
-    switch (ctrl->id) {
-    case V4L2_CID_EEPROM_DATA:
-        dev_err(&client->dev, "%s: V4L2_CID_EEPROM_DATA not implemented.\n", __func__);
-        break;
-
-    default:
-            dev_err(&client->dev, "%s: unknown ctrl id.\n", __func__);
-            return -EINVAL;
-    }
-
-    return err;
-}
-
 static const struct v4l2_ctrl_ops daxc02_ctrl_ops = {
-    .g_volatile_ctrl    = daxc02_g_volatile_ctrl,
     .s_ctrl             = daxc02_s_ctrl,
 };
 
@@ -800,15 +709,6 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
     return (buf[0] << 8) | buf[1];
 }
 
-
-static inline int mt9m021_read_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t *val)
-{
-    struct i2c_client *client = s_data->i2c_client;
-    dev_dbg(&client->dev, "%s\n", __func__);
-    *val = (uint8_t)mt9m021_read(client, addr);
-    return 0;
-}
-
 static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data)
 {
     struct i2c_msg msg;
@@ -819,7 +719,6 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
     dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, data, addr);
 
     /* 16-bit addressable register */
-
     __addr = cpu_to_be16(addr);
     __data = cpu_to_be16(data);
 
@@ -838,14 +737,6 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
 
     dev_err(&client->dev, "write failed at 0x%04x error %d\n", addr, ret);
     return ret;
-}
-
-
-static inline int mt9m021_write_reg(struct camera_common_data *s_data, uint16_t addr, uint8_t val)
-{
-    struct i2c_client *client = s_data->i2c_client;
-    dev_dbg(&client->dev, "%s\n", __func__);
-    return mt9m021_write(client, addr, val);
 }
 
 static int daxc02_bridge_setup(struct i2c_client *client)
@@ -983,7 +874,6 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
     ret = mt9m021_write(client, 0x3180, 0x8000);
     if (ret < 0) return ret;
 
-    //ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0000);
     ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0380);
     if (ret < 0) return ret;
 
@@ -996,56 +886,48 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
     return ret;
 }
 
-/**
- * mt9m021_pll_setup - enable the sensor pll
- * @client: pointer to the i2c client
+/*
+ * PLL Dividers
+ *
+ * Calculated according to the following formula:
+ *
+ *    target_freq = (ext_freq x M) / (N x P1 x P2)
+ *    VCO_freq    = (ext_freq x M) / N
+ *
+ *    Limitations of PLL parameters
+ *    -----------------------------
+ *    0x20      >=  M           >=  0x180
+ *    0x01      >=  N           >=  0x40
+ *    0x01      >=  P1          >=  0x10
+ *    0x04      >=  P2          >=  0x10
+ *    384MHz    >=  VCO_freq    >=  768MHz
  *
  */
-static int mt9m021_pll_setup(struct i2c_client *client)
+static int mt9m021_pll_setup(struct i2c_client *client, uint16_t m, uint8_t n, uint8_t p1, uint8_t p2)
 {
     int ret;
-    int i;
-    struct camera_common_data *common_data = to_camera_common_data(client);
-    struct daxc02 *priv = common_data->priv;
-    struct mt9m021_platform_data *mt9m021 = priv->mt9m021_pdata;
+    dev_dbg(&client->dev, "%s: M=%d, N=%d, P1=%d, P2=%d" ,__func__, m, n, p1, p2);
 
-    dev_dbg(&client->dev, "%s\n", __func__);
+    if((m <  0x20) && (m > 0x180)) return -EINVAL;
+    if((n <  0x01) && (n > 0x40)) return -EINVAL;
+    if((p1 <  0x01) && (p1 > 0x10)) return -EINVAL;
+    if((p2 <  0x04) && (p2 > 0x10)) return -EINVAL;
 
-    for (i = 0; i < ARRAY_SIZE(mt9m021_divs); i++)
-    {
-        if (mt9m021_divs[i].ext_freq == mt9m021->ext_freq &&
-            mt9m021_divs[i].target_freq == mt9m021->target_freq)
-        {
-            priv->pll = &mt9m021_divs[i];
-            goto out;
-        }
-    }
-    dev_err(&client->dev, "Couldn't find PLL dividers for ext_freq = %d, target_freq = %d\n",
-            mt9m021->ext_freq, mt9m021->target_freq);
-    return -EINVAL;
+    ret = mt9m021_write(client, MT9M021_VT_PIX_CLK_DIV, p1);
+    if (ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_VT_SYS_CLK_DIV, p2);
+    if (ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_PRE_PLL_CLK_DIV, n);
+    if (ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_PLL_MULTIPLIER, m);
+    if (ret < 0) return ret;
 
-    out:
-        dev_dbg(&client->dev, "PLL settings:M = %d, N = %d, P1 = %d, P2 = %d",
-                priv->pll->m, priv->pll->n, priv->pll->p1, priv->pll->p2);
-        ret = mt9m021_write(client, MT9M021_VT_PIX_CLK_DIV, priv->pll->p1);
-        if (ret < 0) return ret;
-        ret = mt9m021_write(client, MT9M021_VT_SYS_CLK_DIV, priv->pll->p2);
-        if (ret < 0) return ret;
-        ret = mt9m021_write(client, MT9M021_PRE_PLL_CLK_DIV, priv->pll->n);
-        if (ret < 0) return ret;
-        ret = mt9m021_write(client, MT9M021_PLL_MULTIPLIER, priv->pll->m);
-        if (ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, 0x0000);
+    if (ret < 0) return ret;
 
-        if (mt9m021->version == MT9M021_COLOR_VERSION)
-            ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, 0x0000);
-        else
-            ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, 0x0080);
+    msleep(100);
 
-        if (ret < 0) return ret;
-
-        msleep(100);
-
-        return ret;
+    return ret;
 }
 
 /**
@@ -1062,6 +944,8 @@ static int mt9m021_set_size(struct i2c_client *client)
     dev_dbg(&client->dev, "%s\n", __func__);
 
     /*
+    Leopard Recommendations:
+
     0x3002, 0x0078,     // Y_ADDR_START
     0x3004, 0x0000,     // X_ADDR_START
     0x3006, 0x0347,     // Y_ADDR_END
@@ -1137,6 +1021,7 @@ static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposu
             if (ret < 0) return ret;
             ret = mt9m021_write(client, MT9M021_AE_CTRL_REG, 0x0000);
             if (ret < 0) return ret;
+
             if (streaming) {
                 ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
                 if (ret < 0) return ret;
@@ -1149,6 +1034,7 @@ static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposu
                 ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
                 if (ret < 0) return ret;
             }
+
             ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1982);
             if (ret < 0) return ret;
             ret = mt9m021_write(client, MT9M021_AE_CTRL_REG, 0x0013);
@@ -1193,65 +1079,60 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     ret = daxc02_bridge_setup(client);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup mipi bridge\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to setup mipi bridge\n",__func__);
         return ret;
     }
 
     ret = mt9m021_sequencer_settings(client);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup sequencer\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to setup sequencer\n",__func__);
         return ret;
     }
 
-    ret = mt9m021_pll_setup(client);
+    ret = mt9m021_pll_setup(client, MT9M021_PLL_M, MT9M021_PLL_N, MT9M021_PLL_P1, MT9M021_PLL_P2);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup pll\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to setup pll\n",__func__);
         return ret;
     }
 
     ret = mt9m021_col_correction(client);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup column correction\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to setup column correction\n",__func__);
         return ret;
     }
 
     ret = mt9m021_rev2_settings(client);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup Rev2 optimised settings\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to setup Rev2 optimised settings\n",__func__);
         return ret;
     }
 
     ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1802);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to disable embedded data\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to disable embedded data\n",__func__);
         return ret;
     }
 
     ret = mt9m021_set_size(client);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to setup resolution\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to setup resolution\n",__func__);
         return ret;
     }
 
     ret = mt9m021_write(client, MT9M021_READ_MODE, 0);
     if (ret < 0)
     {
-        printk(KERN_ERR"%s: Failed to disable read mode\n",__func__);
+        dev_dbg(&client->dev, "%s: Failed to disable read mode\n",__func__);
         return ret;
     }
 
-    // Test pattern
-    //ret = mt9m021_write(client, MT9M021_TEST_PATTERN, 2);
-    //if(ret < 0) return ret;
-
     /* start streaming */
-    //return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
     return mt9m021_write(client, MT9M021_RESET_REG, 0x10DC);
 }
 
@@ -1342,35 +1223,32 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
     struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct mt9m021_frame_size size;
     struct v4l2_mbus_framefmt *__format;
     struct v4l2_rect *__crop;
-    unsigned int wratio;
-    unsigned int hratio;
+    uint16_t wratio;
+    uint16_t hratio;
+    uint16_t width;
+    uint16_t height;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
     __crop = &priv->crop;
 
     // Clamp the width and height to avoid dividing by zero.
-    size.width = clamp_t(unsigned int, ALIGN(format->format.width, 2),
+    width = clamp_t(uint16_t, ALIGN(format->format.width, 2),
             MT9M021_WINDOW_WIDTH_MIN,
             MT9M021_WINDOW_WIDTH_MAX);
-    size.height = clamp_t(unsigned int, ALIGN(format->format.height, 2),
+    wratio = DIV_ROUND_CLOSEST(__crop->width, width);
+
+    height = clamp_t(uint16_t, ALIGN(format->format.height, 2),
             MT9M021_WINDOW_HEIGHT_MIN,
             MT9M021_WINDOW_WIDTH_MAX);
-
-    wratio = DIV_ROUND_CLOSEST(__crop->width, size.width);
-    hratio = DIV_ROUND_CLOSEST(__crop->height, size.height);
+    hratio = DIV_ROUND_CLOSEST(__crop->height, height);
 
     __format = &priv->format;
 
     __format->width             = __crop->width / wratio;
     __format->height            = __crop->height / hratio;
-
-    printk(KERN_INFO"mt9m021: crop = %dx%d format = %dx%d\n",
-    __crop->width, __crop->height, __format->width, __format->height);
-
     format->format              = *__format;
 
     priv->format.width       = format->format.width;
@@ -1473,8 +1351,6 @@ static struct v4l2_subdev_ops daxc02_subdev_ops = {
 static struct camera_common_sensor_ops daxc02_common_ops = {
     .power_on               = daxc02_power_on,
     .power_off              = daxc02_power_off,
-    .write_reg              = mt9m021_write_reg,
-    .read_reg               = mt9m021_read_reg,
 };
 
 
@@ -1497,10 +1373,6 @@ static int mt9m021_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
     return 0;
 }
 
-/*
- * Internal ops. Never call this from drivers, only the v4l2 framework can call
- * these ops.
- */
 static const struct v4l2_subdev_internal_ops mt9m021_subdev_internal_ops = {
     .open               = mt9m021_open,
     .close              = mt9m021_close,
@@ -1530,7 +1402,7 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
     struct device_node *node = client->dev.of_node;
     struct camera_common_pdata *board_priv_pdata;
     const struct of_device_id *match;
-    //int gpio;
+
     int err;
 
     dev_dbg(&client->dev, "%s\n", __func__);
@@ -1595,7 +1467,6 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 static int daxc02_ctrls_init(struct daxc02 *priv)
 {
     struct i2c_client *client = priv->i2c_client;
-    struct camera_common_data *common_data = priv->s_data;
     struct v4l2_ctrl *ctrl;
     int numctrls;
     int err;
@@ -1609,12 +1480,6 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
 
     for (i = 0; i < numctrls; i++)
     {
-        /* Skip control 'V4L2_CID_EEPROM_DATA' */
-        if (ctrl_config_list[i].id == V4L2_CID_EEPROM_DATA) {
-            common_data->numctrls -= 1;
-            continue;
-        }
-
         dev_dbg(&client->dev, "control %d: %s\n", i, ctrl_config_list[i].name);
         ctrl = v4l2_ctrl_new_custom(&priv->ctrl_handler, &ctrl_config_list[i], NULL);
         if (ctrl == NULL)
@@ -1658,7 +1523,6 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     struct camera_common_data *common_data;
-    struct mt9m021_platform_data *mt9m021_pdata;
     struct daxc02 *priv;
     struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
     char debugfs_name[10];
@@ -1667,9 +1531,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     int err;
 
     dev_dbg(&client->dev, "%s\n", __func__);
-
-    mt9m021_pdata = devm_kzalloc(&client->dev, sizeof(struct mt9m021_platform_data), GFP_KERNEL);
-    if (!mt9m021_pdata) return -ENOMEM;
 
     common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
     if (!common_data) return -ENOMEM;
@@ -1692,10 +1553,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         dev_warn(&client->dev, "i2c-adapter doesn't support I2C_FUNC_SMBUS_WORD\n");
         return -EIO;
     }
-
-    mt9m021_pdata->ext_freq     = MT9M021_EXT_FREQ;
-    mt9m021_pdata->target_freq  = MT9M021_TARGET_FREQ;
-    mt9m021_pdata->version      = MT9M021_COLOR_VERSION;
 
     common_data->ops            = &daxc02_common_ops;
     common_data->ctrl_handler   = &priv->ctrl_handler;
@@ -1721,7 +1578,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->s_data->dev           = &client->dev;
     priv->group_hold_prev       = 0;
 
-    priv->mt9m021_pdata         = mt9m021_pdata;
     priv->crop.width            = MT9M021_WINDOW_WIDTH_MAX;
     priv->crop.height           = MT9M021_WINDOW_HEIGHT_MAX;
     priv->crop.left             = MT9M021_COLUMN_START_DEF;
