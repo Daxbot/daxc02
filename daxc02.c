@@ -582,15 +582,15 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     if (pw->dvdd) err = regulator_enable(pw->dvdd);     // 1.2V
     if (err) goto daxc02_dvdd_fail;
 
-    usleep_range(5, 10);
+    usleep_range(50, 100);
     if (pw->avdd) err = regulator_enable(pw->avdd);     // 2.8V
     if (err) goto daxc02_avdd_fail;
 
-    usleep_range(5, 10);
+    usleep_range(50, 100);
     if (pw->iovdd) err = regulator_enable(pw->iovdd);   // 1.8V
     if (err) goto daxc02_iovdd_fail;
 
-    usleep_range(1350, 1360);
+    msleep(200);
 
     pw->state = SWITCH_ON;
     return 0;
@@ -628,9 +628,9 @@ static int daxc02_power_off(struct camera_common_data *s_data)
     usleep_range(2000, 2010);
 
     if (pw->iovdd) regulator_disable(pw->iovdd);
-    usleep_range(5, 10);
+    usleep_range(50, 100);
     if (pw->avdd) regulator_disable(pw->avdd);
-    usleep_range(5, 10);
+    usleep_range(50, 100);
     if (pw->dvdd) regulator_disable(pw->dvdd);
 
     return 0;

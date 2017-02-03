@@ -5,7 +5,6 @@
 TX1_SSH = ubuntu@10.100.0.69
 TX1_DIR = /lib/modules/3.10.96-nova+/kernel/drivers/media/i2c
 
-obj-m += tps22994.o
 obj-m += daxc02.o
 
 ccflags-y=-I/usr/include
