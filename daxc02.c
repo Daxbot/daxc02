@@ -1,5 +1,10 @@
 #define DEBUG 1
 
+
+/***************************************************
+        Library Includes
+****************************************************/
+
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -19,8 +24,9 @@
 #include <stdbool.h>
 #include <linux/kernel.h>
 
+
 /***************************************************
-        MT9M021 Registers
+        MT9M021 Image Sensor Registers
 ****************************************************/
 
 #define MT9M021_CHIP_ID_REG             0x3000
@@ -72,8 +78,9 @@
 #define MT9M021_GLOBAL_GAIN_CB          0x30C4
 
 
+
 /***************************************************
-        MT9M021 Defines
+        MT9M021 Image Sensor Defines
 ****************************************************/
 
 #define BRIDGE_I2C_ADDR                 0x0e
@@ -122,7 +129,6 @@
 #define MT9M021_EXPOSURE_MAX            0x02A0
 #define MT9M021_EXPOSURE_DEF            0x0100
 
-
 static uint16_t mt9m021_seq_data[] = {
     0x3227, 0x0101, 0x0F25, 0x0808, 0x0227, 0x0101, 0x0837, 0x2700,
     0x0138, 0x2701, 0x013A, 0x2700, 0x0125, 0x0020, 0x3C25, 0x0040,
@@ -147,6 +153,11 @@ static uint16_t mt9m021_analog_setting[] = {
     0x00FD, 0x0FFF, 0x0003, 0xF87A, 0xE075, 0x077C, 0xA4EB, 0xD208
 };
 
+/***************************************************
+        NVIDIA Camera Common Defines
+****************************************************/
+
+// TODO: Figure out if any of these are actually needed.
 enum {
     MT9M021_DEFAULT_MODE
 };
@@ -160,7 +171,7 @@ static const struct camera_common_frmfmt mt9m021_frmfmt[] = {
 };
 
 /***************************************************
-        TC358746AXBG MIPI Defines
+        TC358746AXBG MIPI Converter Defines
 ****************************************************/
 
 struct daxc02_mipi_settings {
@@ -252,8 +263,8 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format);
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop);
 static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop);
-static int mt9m021_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
-static int mt9m021_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
+static int daxc02_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
+static int daxc02_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client);
 static int daxc02_ctrls_init(struct daxc02 *priv);
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id);
@@ -264,6 +275,9 @@ static int daxc02_remove(struct i2c_client *client);
         V4L2 Control Configuration
 ****************************************************/
 
+/*
+ * Non-standard control definitions.
+ */
 #define V4L2_CID_GAIN_RED           (V4L2_CID_USER_BASE | 0x1001)
 #define V4L2_CID_GAIN_GREEN1        (V4L2_CID_USER_BASE | 0x1002)
 #define V4L2_CID_GAIN_GREEN2        (V4L2_CID_USER_BASE | 0x1003)
@@ -271,13 +285,8 @@ static int daxc02_remove(struct i2c_client *client);
 #define V4L2_CID_ANALOG_GAIN        (V4L2_CID_USER_BASE | 0x1005)
 
 /*
-MT9M021_TEST_PATTERN
-0 = Disabled. Normal operation. Generate output data from pixel array
-1 = Solid color test pattern",
-2 = color bar test pattern",
-3 = Fade to gray color bar test pattern",
-256 = Walking 1s test pattern (12 bit)"
-*/
+ * Extra test pattern information to display to the user.
+ */
 static const char * const mt9m021_test_pattern_menu[] = {
     "0:Disabled",
     "1:Solid color test pattern",
@@ -286,6 +295,10 @@ static const char * const mt9m021_test_pattern_menu[] = {
     "256:Walking 1s test pattern (12 bit)"
 };
 
+/** daxc02_s_ctrl - Called by the V4L2 framework to set a control.
+  * @ctrl:  struct containing the control id to switch off of and
+  *         value to set from the v4l2 framework.
+  */
 static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 {
     uint16_t reg16;
@@ -402,12 +415,17 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
     return ret;
 }
 
+/*
+ * Registers the control operations with the v4l2 framework.
+ */
 static const struct v4l2_ctrl_ops daxc02_ctrl_ops = {
     .s_ctrl             = daxc02_s_ctrl,
 };
 
+/*
+ * List of controls and limits that can be set through the v4l2 framework.
+ */
 static struct v4l2_ctrl_config ctrl_config_list[] = {
-/* Do not change the name field for the controls! */
     {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_GAIN,
@@ -538,6 +556,9 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         DAX-C02 Power Functions
 ****************************************************/
 
+/** daxc02_power_on - Turns on the needed TX1 voltage regulators.
+  * @s_data: Nvidia camera common data struct.
+  */
 static int daxc02_power_on(struct camera_common_data *s_data)
 {
     int err = 0;
@@ -554,7 +575,6 @@ static int daxc02_power_on(struct camera_common_data *s_data)
         else pw->state = SWITCH_ON;
         return err;
     }
-
 
     /* sleeps calls in the sequence below are for internal device
      * signal propagation as specified by sensor vendor */
@@ -586,6 +606,9 @@ static int daxc02_power_on(struct camera_common_data *s_data)
         return -ENODEV;
 }
 
+/** daxc02_power_off - Turns off the needed TX1 voltage regulators.
+  * @s_data: Nvidia camera common data struct.
+  */
 static int daxc02_power_off(struct camera_common_data *s_data)
 {
     int err = 0;
@@ -613,26 +636,9 @@ static int daxc02_power_off(struct camera_common_data *s_data)
     return 0;
 }
 
-static int daxc02_power_put(struct daxc02 *priv)
-{
-    struct camera_common_power_rail *pw = &priv->power;
-    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
-
-    if (unlikely(!pw)) return -EFAULT;
-
-    if (likely(pw->iovdd)) regulator_put(pw->iovdd);
-
-    if (likely(pw->avdd)) regulator_put(pw->avdd);
-
-    if (likely(pw->dvdd)) regulator_put(pw->dvdd);
-
-    pw->avdd = NULL;
-    pw->iovdd = NULL;
-    pw->dvdd = NULL;
-
-    return 0;
-}
-
+/** daxc02_power_put - Registers needed voltage regulators.
+ * @priv: Dax-C02 private data structure.
+ */
 static int daxc02_power_get(struct daxc02 *priv)
 {
     struct camera_common_power_rail *pw = &priv->power;
@@ -671,11 +677,38 @@ static int daxc02_power_get(struct daxc02 *priv)
     return err;
 }
 
+/** daxc02_power_put - Frees the voltage regulators.
+ * @priv: Dax-C02 private data structure.
+ */
+static int daxc02_power_put(struct daxc02 *priv)
+{
+    struct camera_common_power_rail *pw = &priv->power;
+    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
+
+    if (unlikely(!pw)) return -EFAULT;
+
+    if (likely(pw->iovdd)) regulator_put(pw->iovdd);
+
+    if (likely(pw->avdd)) regulator_put(pw->avdd);
+
+    if (likely(pw->dvdd)) regulator_put(pw->dvdd);
+
+    pw->avdd = NULL;
+    pw->iovdd = NULL;
+    pw->dvdd = NULL;
+
+    return 0;
+}
+
 
 /***************************************************
         MT9M021 Helper Functions
 ****************************************************/
 
+/** mt9m021_read - Reads a MT9M021 register.
+  * @client:    pointer to the i2c client.
+  * @addr:      address of the register to read.
+  */
 static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
 {
     struct i2c_msg msg[2];
@@ -709,6 +742,11 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
     return (buf[0] << 8) | buf[1];
 }
 
+/** mt9m021_write - Writes to a MT9M021 register.
+  * @client:    pointer to the i2c client.
+  * @addr:      address of the register to write.
+  * @data:      data to write to the register.
+  */
 static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t data)
 {
     struct i2c_msg msg;
@@ -739,6 +777,9 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
     return ret;
 }
 
+/** daxc02_bridge_setup - Configures the MIPI bridge.
+  * @client: pointer to the i2c client.
+  */
 static int daxc02_bridge_setup(struct i2c_client *client)
 {
     struct i2c_msg msg[2];
@@ -785,10 +826,8 @@ static int daxc02_bridge_setup(struct i2c_client *client)
     return ret;
 }
 
-/**
- * mt9m021_sequencer_settings
- * @client: pointer to the i2c client
- *
+/** mt9m021_sequencer_settings - Loads the MT9M021 sequencer settings.
+ * @client: pointer to the i2c client.
  */
 static int mt9m021_sequencer_settings(struct i2c_client *client)
 {
@@ -808,10 +847,8 @@ static int mt9m021_sequencer_settings(struct i2c_client *client)
     return ret;
 }
 
-/**
- * mt9m021_col_correction - retrigger column correction
- * @client: pointer to the i2c client
- *
+/** mt9m021_col_correction - sets up column correction.
+ * @client: pointer to the i2c client.
  */
 static int mt9m021_col_correction(struct i2c_client *client)
 {
@@ -847,10 +884,8 @@ static int mt9m021_col_correction(struct i2c_client *client)
     return ret;
 }
 
-/**
- * mt9m021_rev2_settings
- * @client: pointer to the i2c client
- *
+/** mt9m021_rev2_settings - Additional setup from Leopard and Aptina.
+ * @client: pointer to the i2c client.
  */
 static int mt9m021_rev2_settings(struct i2c_client *client)
 {
@@ -886,10 +921,12 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
     return ret;
 }
 
-/*
- * PLL Dividers
- *
- * Calculated according to the following formula:
+/** mt9m021_pll_setup - sets up the PLL.
+ * @client:     pointer to the i2c client.
+ * @m:          PLL multiplier, M.
+ * @n:          PLL pre clock divider, N.
+ * @p1:         PLL pixel clock divider, P1.
+ * @p2:         PLL system clock divider, P2.
  *
  *    target_freq = (ext_freq x M) / (N x P1 x P2)
  *    VCO_freq    = (ext_freq x M) / N
@@ -930,10 +967,8 @@ static int mt9m021_pll_setup(struct i2c_client *client, uint16_t m, uint8_t n, u
     return ret;
 }
 
-/**
- * mt9m021_set_size - set the frame resolution
- * @client: pointer to the i2c client
- *
+/** mt9m021_set_size - set the frame resolution.
+ * @client: pointer to the i2c client.
  */
 static int mt9m021_set_size(struct i2c_client *client)
 {
@@ -979,6 +1014,9 @@ static int mt9m021_set_size(struct i2c_client *client)
 
 }
 
+/** mt9m021_is_streaming - returns if the sensor is streaming.
+ * @client: pointer to the i2c client.
+ */
 static int mt9m021_is_streaming(struct i2c_client *client)
 {
     uint16_t streaming;
@@ -991,6 +1029,10 @@ static int mt9m021_is_streaming(struct i2c_client *client)
     return (streaming != 0);
 }
 
+/** mt9m021_set_autoexposure - enables or disables autoexposure.
+ * @client: pointer to the i2c client.
+ * @ae_mode: v4l2 autoexposure mode.
+ */
 static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode )
 {
     struct camera_common_data *common_data = to_camera_common_data(client);
@@ -1067,6 +1109,10 @@ static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposu
         V4L2 Subdev Video Operations
 ****************************************************/
 
+/** mt9m021_s_stream - starts or disables streaming.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @enable: enable or disable stream.
+ */
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1136,6 +1182,10 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     return mt9m021_write(client, MT9M021_RESET_REG, 0x10DC);
 }
 
+/** daxc02_g_input_status - get input status.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @status: where to store the status.
+ */
 static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1149,6 +1199,9 @@ static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status)
     return 0;
 }
 
+/*
+ * Registers the v4l2 sub device video operations.
+ */
 static struct v4l2_subdev_video_ops daxc02_subdev_video_ops = {
     .s_stream               = mt9m021_s_stream,
     .s_mbus_fmt             = camera_common_s_fmt,
@@ -1174,6 +1227,13 @@ static struct v4l2_subdev_core_ops daxc02_subdev_core_ops = {
 /***************************************************
         V4L2 Subdev Pad Operations
 ****************************************************/
+
+/** mt9m021_enum_mbus_code - Handles the %VIDIOC_SUBDEV_ENUM_MBUS_CODE ioctl.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @fh:     pointer to the v4l2 sub-device file handle.
+ * @code:   sub-device mbus code enum.
+ */
+// TODO: Aptina Code
 static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_mbus_code_enum *code)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1187,6 +1247,12 @@ static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh 
     return 0;
 }
 
+/** mt9m021_enum_mbus_code - Handles the %VIDIOC_SUBDEV_ENUM_FRAME_SIZE ioctl.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @fh:     pointer to the v4l2 sub-device file handle.
+ * @fse:    sub-device frame size enum.
+ */
+// TODO: Aptina Code
 static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_frame_size_enum *fse)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1205,6 +1271,12 @@ static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh
     return 0;
 }
 
+/** mt9m021_get_format - Gets the sub-device format.
+ * @sd:         pointer to the v4l2 sub-device.
+ * @fh:         pointer to the v4l2 sub-device file handle.
+ * @format:     where to store the format.
+ */
+// TODO: Aptina Code
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1218,6 +1290,12 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     return 0;
 }
 
+/** mt9m021_set_format - Sets the sub-device format.
+ * @sd:         pointer to the v4l2 sub-device.
+ * @fh:         pointer to the v4l2 sub-device file handle.
+ * @format:     new format to set.
+ */
+// TODO: Aptina Code
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1258,6 +1336,12 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     return 0;
 }
 
+/** mt9m021_get_crop - Gets the sub-device crop.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @fh:     pointer to the v4l2 sub-device file handle.
+ * @crop:   where to store the crop.
+ */
+// TODO: Aptina Code
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1271,6 +1355,12 @@ static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
     return 0;
 }
 
+/** mt9m021_set_crop - Sets the sub-device crop.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @fh:     pointer to the v4l2 sub-device file handle.
+ * @crop:   new crop to set.
+ */
+// TODO: Aptina Code
 static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1322,7 +1412,9 @@ static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, s
     return 0;
 }
 
-
+/*
+ * Registers the v4l2 sub-device pad operations.
+ */
 static struct v4l2_subdev_pad_ops mt9m021_subdev_pad_ops = {
     .enum_mbus_code         = mt9m021_enum_mbus_code,
     .enum_frame_size        = mt9m021_enum_frame_size,
@@ -1357,25 +1449,35 @@ static struct camera_common_sensor_ops daxc02_common_ops = {
 /***********************************************************
     V4L2 subdev internal operations
 ************************************************************/
-static int mt9m021_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+
+/** mt9m021_open - Called by the v4l2 framework when the device is opened.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @fh:     pointer to the v4l2 sub-device file handle.
+ */
+static int daxc02_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     dev_dbg(&client->dev, "%s\n", __func__);
-    //return camera_common_s_power(sd, 1);
-    return 0;
+    return camera_common_s_power(sd, 1);
 }
 
-static int mt9m021_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+/** mt9m021_open - Called by the v4l2 framework when the device is closed.
+ * @sd:     pointer to the v4l2 sub-device.
+ * @fh:     pointer to the v4l2 sub-device file handle.
+ */
+static int daxc02_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     dev_dbg(&client->dev, "%s\n", __func__);
-    //return camera_common_s_power(sd, 0);
-    return 0;
+    return camera_common_s_power(sd, 0);
 }
 
+/*
+ * Registers the v4l2 sub-device internal operations.
+ */
 static const struct v4l2_subdev_internal_ops mt9m021_subdev_internal_ops = {
-    .open               = mt9m021_open,
-    .close              = mt9m021_close,
+    .open               = daxc02_open,
+    .close              = daxc02_close,
 };
 
 
@@ -1392,11 +1494,17 @@ static const struct media_entity_operations daxc02_media_ops = {
         I2C Driver Setup
 ****************************************************/
 
+/*
+ * Device tree ID for matching.
+ */
 static struct of_device_id daxc02_of_match[] = {
         { .compatible = "nova,daxc02", },
         { },
 };
 
+/** camera_common_pdata - Parses the device tree to load camera common data.
+ * @client: pointer to the i2c client.
+ */
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 {
     struct device_node *node = client->dev.of_node;
@@ -1464,6 +1572,9 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
         return NULL;
 }
 
+/** daxc02_ctrls_init - Registers and initializes controls with the v4l2 framework.
+ * @priv: Dax-C02 private data structure.
+ */
 static int daxc02_ctrls_init(struct daxc02 *priv)
 {
     struct i2c_client *client = priv->i2c_client;
@@ -1489,7 +1600,7 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
         }
 
         if (ctrl_config_list[i].type == V4L2_CTRL_TYPE_STRING &&
-            ctrl_config_list[i].flags & V4L2_CTRL_FLAG_READ_ONLY)
+            (ctrl_config_list[i].flags & V4L2_CTRL_FLAG_READ_ONLY))
         {
             ctrl->string = devm_kzalloc(&client->dev, ctrl_config_list[i].max + 1, GFP_KERNEL);
             if (!ctrl->string) return -ENOMEM;
@@ -1520,6 +1631,10 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
         return err;
 }
 
+/** daxc02_probe - Checks if the device is present and performs one time initialization.
+ * @client:     pointer to the i2c client.
+ * @id:         i2c device id.
+ */
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     struct camera_common_data *common_data;
@@ -1651,6 +1766,9 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     return 0;
 }
 
+/** daxc02_remove - Called when the driver is removed.
+ * @client:     pointer to the i2c client.
+ */
 static int daxc02_remove(struct i2c_client *client)
 {
     struct camera_common_data *common_data = to_camera_common_data(client);
@@ -1672,11 +1790,13 @@ static int daxc02_remove(struct i2c_client *client)
     return 0;
 }
 
+/*
+ * I2C driver setup for registration.
+ */
 static const struct i2c_device_id daxc02_id[] = {
     { "daxc02", 0 },
     { }
 };
-
 static struct i2c_driver daxc02_i2c_driver = {
     .driver = {
         .name = "daxc02",
