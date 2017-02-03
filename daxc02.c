@@ -89,7 +89,7 @@
 #define MT9M021_PLL_M                   99
 #define MT9M021_PLL_N                   4
 #define MT9M021_PLL_P1                  1
-#define MT9M021_PLL_P2                  4
+#define MT9M021_PLL_P2                  8
 
 #define MT9M021_ROW_START_MIN           0
 #define MT9M021_ROW_START_MAX           960
