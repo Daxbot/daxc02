@@ -606,7 +606,7 @@ static int daxc02_power_on(struct camera_common_data *s_data)
         return -ENODEV;
 }
 
-/** daxc02_power_off - Turns off the needed TX1 voltage regulators.
+/** daxc02_power_off - Turns off the TX1 voltage regulators.
   * @s_data: Nvidia camera common data struct.
   */
 static int daxc02_power_off(struct camera_common_data *s_data)
