@@ -123,7 +123,7 @@
 
 #define MT9M021_GLOBAL_GAIN_MIN         0x00
 #define MT9M021_GLOBAL_GAIN_MAX         0xFF
-#define MT9M021_GLOBAL_GAIN_DEF         0xF0
+#define MT9M021_GLOBAL_GAIN_DEF         0x10
 
 #define MT9M021_EXPOSURE_MIN            1
 #define MT9M021_EXPOSURE_MAX            0x02A0
@@ -167,8 +167,17 @@ static const int mt9m021_60fps[] = {
 };
 
 static const struct camera_common_frmfmt mt9m021_frmfmt[] = {
-    {{1280, 960},   mt9m021_60fps,  1, 0,   MT9M021_DEFAULT_MODE},
+    {{1280, 720},   mt9m021_60fps,  1, 0,   MT9M021_DEFAULT_MODE},
 };
+
+static const struct camera_common_colorfmt mt9m021_colorfmt[] = {
+    {
+        V4L2_MBUS_FMT_SGRBG12_1X12,
+        V4L2_COLORSPACE_SRGB,
+        V4L2_PIX_FMT_SGRBG12,
+    },
+};
+
 
 /***************************************************
         TC358746AXBG MIPI Converter Defines
@@ -187,7 +196,10 @@ struct daxc02_mipi_settings daxc02_mipi_output[] = {
    {2, 0x0016, 0x50F9}, // set the input and feedback frequency division ratio
    {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
    {2, 0x0006, 0x0030}, // FIFO level 3
+
+   //{2, 0x0008, 0x0000}, // data format RAW8
    {2, 0x0008, 0x0020}, // data format RAW12
+
    {2, 0x0022, 0x0780}, // word count (bytes per line)
    {4, 0x0210, 0x00002C00},
    {4, 0x0214, 0x00000005},
@@ -407,6 +419,26 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             if(ret < 0) return ret;
             break;
 
+        case V4L2_CID_FRAME_LENGTH:
+            dev_err(&client->dev, "%s: V4L2_CID_FRAME_LENGTH not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_COARSE_TIME:
+            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_COARSE_TIME_SHORT:
+            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME_SHORT not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_GROUP_HOLD:
+            dev_err(&client->dev, "%s: V4L2_CID_GROUP_HOLD not implemented.\n", __func__);
+            break;
+
+        case V4L2_CID_HDR_EN:
+            dev_err(&client->dev, "%s: V4L2_CID_HDR_EN not implemented.\n", __func__);
+            break;
+
         default:
             dev_err(&client->dev, "%s: unknown ctrl id.\n", __func__);
             return -EINVAL;
@@ -548,6 +580,63 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max            = 1,
         .def            = 0,
         .step           = 1,
+    },
+
+    // Begin not implemented controls
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_FRAME_LENGTH,
+        .name = "Frame Length",
+        .type = V4L2_CTRL_TYPE_INTEGER,
+        .flags = V4L2_CTRL_FLAG_SLIDER,
+        .min = 0,
+        .max = 0x7fff,
+        .def = 0x07C0,
+        .step = 1,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_COARSE_TIME,
+        .name = "Coarse Time",
+        .type = V4L2_CTRL_TYPE_INTEGER,
+        .flags = V4L2_CTRL_FLAG_SLIDER,
+        .min = 0x0002,
+        .max = 0x7ff9,
+        .def = 0x7fba,
+        .step = 1,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_COARSE_TIME_SHORT,
+        .name = "Coarse Time Short",
+        .type = V4L2_CTRL_TYPE_INTEGER,
+        .flags = V4L2_CTRL_FLAG_SLIDER,
+        .min = 0x0002,
+        .max = 0x7ff9,
+        .def = 0x7fba,
+        .step = 1,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_GROUP_HOLD,
+        .name = "Group Hold",
+        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
+        .min = 0,
+        .max = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
+        .menu_skip_mask = 0,
+        .def = 0,
+        .qmenu_int = switch_ctrl_qmenu,
+    },
+    {
+        .ops = &daxc02_ctrl_ops,
+        .id = V4L2_CID_HDR_EN,
+        .name = "HDR enable",
+        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
+        .min = 0,
+        .max = 0,
+        .menu_skip_mask = 0,
+        .def = 0,
+        .qmenu_int = switch_ctrl_qmenu,
     },
 };
 
@@ -991,7 +1080,28 @@ static int mt9m021_set_size(struct i2c_client *client)
     0x30A2, 0x0001,     // X_ODD_INC
     0x30A6, 0x0001,     // Y_ODD_INC
     */
+    ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_BINNING_DEF);
+    if (ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_Y_ADDR_START, 0x0078);
+    if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_X_ADDR_START, 0);
+    if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_Y_ADDR_END, 0x0347);
+    if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x04FF);
+    if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, 0x02EB);
+    if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, 0x0672);
+    if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, 0x01C2);
+    if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
+    if(ret < 0) return ret;
+    return mt9m021_write(client, MT9M021_Y_ODD_INC, 0x0001);
 
+
+    /*
     ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_BINNING_DEF);
     if (ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_Y_ADDR_START, priv->crop.top);
@@ -1011,6 +1121,7 @@ static int mt9m021_set_size(struct i2c_client *client)
     ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
     if(ret < 0) return ret;
     return mt9m021_write(client, MT9M021_Y_ODD_INC, 0x0001);
+    */
 
 }
 
@@ -1329,9 +1440,11 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     __format->height            = __crop->height / hratio;
     format->format              = *__format;
 
-    priv->format.width       = format->format.width;
-    priv->format.height      = format->format.height;
-    priv->format.code        = V4L2_MBUS_FMT_SGRBG12_1X12;
+    priv->format.width          = format->format.width;
+    priv->format.height         = format->format.height;
+    priv->format.code           = V4L2_MBUS_FMT_SGRBG12_1X12;
+    priv->format.field          = V4L2_FIELD_NONE;
+    priv->format.colorspace     = V4L2_COLORSPACE_SRGB;
 
     return 0;
 }
@@ -1669,22 +1782,26 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         return -EIO;
     }
 
-    common_data->ops            = &daxc02_common_ops;
-    common_data->ctrl_handler   = &priv->ctrl_handler;
-    common_data->i2c_client     = client;
-    common_data->frmfmt         = mt9m021_frmfmt;
-    common_data->colorfmt       = camera_common_find_datafmt(V4L2_MBUS_FMT_SGRBG12_1X12);
-    common_data->numfmts        = ARRAY_SIZE(mt9m021_frmfmt);
-    common_data->power          = &priv->power;
-    common_data->ctrls          = priv->ctrls;
-    common_data->priv           = (void *)priv;
-    common_data->numctrls       = ARRAY_SIZE(ctrl_config_list);
-    common_data->def_mode       = MT9M021_DEFAULT_MODE;
-    common_data->def_width      = MT9M021_PIXEL_ARRAY_WIDTH;
-    common_data->def_height     = MT9M021_PIXEL_ARRAY_HEIGHT;
-    common_data->fmt_width      = common_data->def_width;
-    common_data->fmt_height     = common_data->def_height;
-    common_data->def_clk_freq   = MT9M021_TARGET_FREQ;
+    common_data->ops                = &daxc02_common_ops;
+    common_data->ctrl_handler       = &priv->ctrl_handler;
+    common_data->i2c_client         = client;
+    common_data->frmfmt             = mt9m021_frmfmt;
+    common_data->colorfmt           = mt9m021_colorfmt;
+    common_data->numfmts            = ARRAY_SIZE(mt9m021_frmfmt);
+    common_data->power              = &priv->power;
+    common_data->ctrls              = priv->ctrls;
+    common_data->priv               = (void *)priv;
+    common_data->numctrls           = ARRAY_SIZE(ctrl_config_list);
+    common_data->def_mode           = MT9M021_DEFAULT_MODE;
+    common_data->def_width          = MT9M021_PIXEL_ARRAY_WIDTH;
+    common_data->def_height         = MT9M021_PIXEL_ARRAY_HEIGHT;
+    common_data->def_maxfps         = 60;
+    common_data->fmt_width          = common_data->def_width;
+    common_data->fmt_height         = common_data->def_height;
+    common_data->fmt_maxfps         = common_data->def_maxfps;
+    common_data->def_clk_freq       = MT9M021_TARGET_FREQ;
+    common_data->sensor_mode_id     = 0;
+    common_data->use_sensor_mode_id = true;
 
     priv->i2c_client            = client;
     priv->s_data                = common_data;
