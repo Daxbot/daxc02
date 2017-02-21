@@ -193,7 +193,7 @@ i2c6 = "/host1x/i2c@546c0000";
                     active_h = "720";
                     pixel_t = "bayer_grbg12";
                     readout_orientation = "0";
-                    line_length = "2688";
+                    line_length = "1650";
                     inherent_gain = "1";
                     mclk_multiplier = "3.094";
                     pix_clk_hz = "74250000";
@@ -358,7 +358,7 @@ i2c6 = "/host1x/i2c@546c0000";
                     active_h = "720";
                     pixel_t = "bayer_grbg12";
                     readout_orientation = "0";
-                    line_length = "2688";
+                    line_length = "1650";
                     inherent_gain = "1";
                     mclk_multiplier = "3.094";
                     pix_clk_hz = "74250000";
@@ -400,29 +400,21 @@ i2c6 = "/host1x/i2c@546c0000";
                 status = "okay";
                 drivernode0 {
                     pcl_id = "v4l2_sensor";
+                    devname = "daxc02 6-0010";
                     proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/daxc02@10";
                 	status = "okay";
-                };
-                drivernode1 {
-                    status = "disabled";
-                    pcl_id = "v4l2_focuser_stub";
-                    proc-device-tree = "";
                 };
             };
             module1 {
                 badge = "daxc02_slave_mt9m021";
-                position = "back";
+                position = "rear";
                 orientation = "1";
                 status = "okay";
                 drivernode0 {
                     pcl_id = "v4l2_sensor";
+                    devname = "daxc02 0-0010";
                     proc-device-tree = "/proc/device-tree/host1x/i2c@7000c000/daxc02@10";
                 	status = "okay";
-                };
-                drivernode1 {
-                    status = "disabled";
-                    pcl_id = "v4l2_focuser_stub";
-                    proc-device-tree = "";
                 };
             };
         };
