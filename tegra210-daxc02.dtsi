@@ -191,7 +191,7 @@ i2c6 = "/host1x/i2c@546c0000";
 
                     active_w = "1280";
                     active_h = "720";
-                    pixel_t = "bayer_grbg12";
+                    pixel_t = "bayer_grbg8";
                     readout_orientation = "0";
                     line_length = "1650";
                     inherent_gain = "1";
@@ -356,7 +356,7 @@ i2c6 = "/host1x/i2c@546c0000";
 
                     active_w = "1280";
                     active_h = "720";
-                    pixel_t = "bayer_grbg12";
+                    pixel_t = "bayer_grbg8";
                     readout_orientation = "0";
                     line_length = "1650";
                     inherent_gain = "1";
