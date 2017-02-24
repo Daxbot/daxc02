@@ -1,4 +1,5 @@
-#define DEBUG 1
+#define DEBUG
+#define USE_RAW8
 
 
 /***************************************************
@@ -167,9 +168,18 @@ static const int mt9m021_60fps[] = {
 };
 
 static const struct camera_common_frmfmt mt9m021_frmfmt[] = {
-    {{1280, 720},   mt9m021_60fps,  1, 0,   MT9M021_DEFAULT_MODE},
+    {{MT9M021_WINDOW_WIDTH_DEF, MT9M021_WINDOW_HEIGHT_DEF},   mt9m021_60fps,  1, 0,   MT9M021_DEFAULT_MODE},
 };
 
+#ifdef USE_RAW8
+static const struct camera_common_colorfmt mt9m021_colorfmt[] = {
+    {
+        V4L2_MBUS_FMT_SGRBG8_1X8,
+        V4L2_COLORSPACE_SRGB,
+        V4L2_PIX_FMT_SGRBG8,
+    },
+};
+#else
 static const struct camera_common_colorfmt mt9m021_colorfmt[] = {
     {
         V4L2_MBUS_FMT_SGRBG12_1X12,
@@ -177,6 +187,8 @@ static const struct camera_common_colorfmt mt9m021_colorfmt[] = {
         V4L2_PIX_FMT_SGRBG12,
     },
 };
+#endif
+
 
 
 /***************************************************
@@ -197,8 +209,11 @@ struct daxc02_mipi_settings daxc02_mipi_output[] = {
    {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
    {2, 0x0006, 0x0030}, // FIFO level 3
 
-   //{2, 0x0008, 0x0000}, // data format RAW8
+#ifdef USE_RAW8
+   {2, 0x0008, 0x0000}, // data format RAW8
+#else
    {2, 0x0008, 0x0020}, // data format RAW12
+#endif
 
    {2, 0x0022, 0x0780}, // word count (bytes per line)
    {4, 0x0210, 0x00002C00},
@@ -1100,6 +1115,7 @@ static int mt9m021_set_size(struct i2c_client *client)
     if(ret < 0) return ret;
     return mt9m021_write(client, MT9M021_Y_ODD_INC, 0x0001);
 
+    // TODO: Make the size not hardcoded
 
     /*
     ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_BINNING_DEF);
@@ -1394,9 +1410,13 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
 
-    dev_dbg(&client->dev, "%s\n", __func__);
-
     format->format = priv->format;
+
+    dev_dbg(&client->dev, "%s\n\twidth: %u\n\theight: %u\n\tcode: %u\n",
+            __func__,
+            format->format.width,
+            format->format.height,
+            format->format.code);
 
     return 0;
 }
@@ -1406,45 +1426,19 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
  * @fh:         pointer to the v4l2 sub-device file handle.
  * @format:     new format to set.
  */
-// TODO: Aptina Code
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
     struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct v4l2_mbus_framefmt *__format;
-    struct v4l2_rect *__crop;
-    uint16_t wratio;
-    uint16_t hratio;
-    uint16_t width;
-    uint16_t height;
 
-    dev_dbg(&client->dev, "%s\n", __func__);
+    dev_dbg(&client->dev, "%s\n\twidth: %u\n\theight: %u\n\tcode: %u\n",
+            __func__,
+            format->format.width,
+            format->format.height,
+            format->format.code);
 
-    __crop = &priv->crop;
-
-    // Clamp the width and height to avoid dividing by zero.
-    width = clamp_t(uint16_t, ALIGN(format->format.width, 2),
-            MT9M021_WINDOW_WIDTH_MIN,
-            MT9M021_WINDOW_WIDTH_MAX);
-    wratio = DIV_ROUND_CLOSEST(__crop->width, width);
-
-    height = clamp_t(uint16_t, ALIGN(format->format.height, 2),
-            MT9M021_WINDOW_HEIGHT_MIN,
-            MT9M021_WINDOW_WIDTH_MAX);
-    hratio = DIV_ROUND_CLOSEST(__crop->height, height);
-
-    __format = &priv->format;
-
-    __format->width             = __crop->width / wratio;
-    __format->height            = __crop->height / hratio;
-    format->format              = *__format;
-
-    priv->format.width          = format->format.width;
-    priv->format.height         = format->format.height;
-    priv->format.code           = V4L2_MBUS_FMT_SGRBG12_1X12;
-    priv->format.field          = V4L2_FIELD_NONE;
-    priv->format.colorspace     = V4L2_COLORSPACE_SRGB;
+    // TODO: Implement setting formats
 
     return 0;
 }
@@ -1454,7 +1448,6 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
  * @fh:     pointer to the v4l2 sub-device file handle.
  * @crop:   where to store the crop.
  */
-// TODO: Aptina Code
 static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1815,7 +1808,12 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->crop.left             = MT9M021_COLUMN_START_DEF;
     priv->crop.top              = MT9M021_ROW_START_DEF;
 
+#ifdef USE_RAW8
+    priv->format.code           = V4L2_MBUS_FMT_SGRBG8_1X8;
+#else
     priv->format.code           = V4L2_MBUS_FMT_SGRBG12_1X12;
+#endif
+
     priv->format.width          = MT9M021_WINDOW_WIDTH_DEF;
     priv->format.height         = MT9M021_WINDOW_HEIGHT_DEF;
     priv->format.field          = V4L2_FIELD_NONE;
