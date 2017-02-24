@@ -1,5 +1,5 @@
 #define DEBUG
-#define USE_RAW8
+//#define USE_RAW8
 
 
 /***************************************************
@@ -229,8 +229,8 @@ struct daxc02_mipi_settings daxc02_mipi_output[] = {
    {4, 0x0518, 0x00000001}, // CSI start
 
    {4, 0x0500, 0xA30080A1}, // 1 data lane
-   //{4, 0x0500, 0xA30080A3}, // 2 data lanes?
-   //{4, 0x0500, 0xA30080A7}, // 4 data lanes?
+   //{4, 0x0500, 0xA30080A3}, // 2 data lanes
+   //{4, 0x0500, 0xA30080A7}, // 4 data lanes
 
    {4, 0x0204, 0x00000001}, // TX PPI starts
    {2, 0x0004, 0x0044},
@@ -1076,8 +1076,8 @@ static int mt9m021_pll_setup(struct i2c_client *client, uint16_t m, uint8_t n, u
  */
 static int mt9m021_set_size(struct i2c_client *client)
 {
-    struct camera_common_data *common_data = to_camera_common_data(client);
-    struct daxc02 *priv = common_data->priv;
+    //struct camera_common_data *common_data = to_camera_common_data(client);
+    //struct daxc02 *priv = common_data->priv;
     int ret;
 
     dev_dbg(&client->dev, "%s\n", __func__);
@@ -1360,7 +1360,6 @@ static struct v4l2_subdev_core_ops daxc02_subdev_core_ops = {
  * @fh:     pointer to the v4l2 sub-device file handle.
  * @code:   sub-device mbus code enum.
  */
-// TODO: Aptina Code
 static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_mbus_code_enum *code)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1379,7 +1378,6 @@ static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh 
  * @fh:     pointer to the v4l2 sub-device file handle.
  * @fse:    sub-device frame size enum.
  */
-// TODO: Aptina Code
 static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_frame_size_enum *fse)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1403,7 +1401,6 @@ static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh
  * @fh:         pointer to the v4l2 sub-device file handle.
  * @format:     where to store the format.
  */
-// TODO: Aptina Code
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
     struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
@@ -1428,8 +1425,8 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
  */
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
-    struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
-    struct daxc02 *priv = common_data->priv;
+    //struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
+    //struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
 
     dev_dbg(&client->dev, "%s\n\twidth: %u\n\theight: %u\n\tcode: %u\n",
