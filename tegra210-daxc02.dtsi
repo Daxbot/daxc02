@@ -61,7 +61,7 @@ i2c6 = "/host1x/i2c@546c0000";
                 reg = <0x10>;
                 
                 /* Device */
-                devnode = "video1";
+                devnode = "video0";
 
                 /* Physical dimensions of sensor */
                 physical_w = "10";
