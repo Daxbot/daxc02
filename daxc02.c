@@ -1,11 +1,6 @@
 #define DEBUG
 //#define USE_RAW8
 
-
-/***************************************************
-        Library Includes
-****************************************************/
-
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -159,7 +154,7 @@ static uint16_t mt9m021_analog_setting[] = {
 ****************************************************/
 
 // TODO: Figure out if any of these are actually needed.
-enum {
+enum mt9m021_modes{
     MT9M021_DEFAULT_MODE
 };
 
@@ -1407,6 +1402,17 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
 
+    /*
+    switch(format->which)
+    {
+        case V4L2_SUBDEV_FORMAT_TRY:
+
+        case V4L2_SUBDEV_FORMAT_ACTIVE:
+
+        default:
+            return NULL;
+    }
+    */
     format->format = priv->format;
 
     dev_dbg(&client->dev, "%s\n\twidth: %u\n\theight: %u\n\tcode: %u\n",
@@ -1874,7 +1880,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     err = v4l2_async_register_subdev(priv->subdev);
     if (err) return err;
 
-    pr_info("daxc02: probe successful.\n");
+    dev_info(&client->dev, "probe successful.\n");
     return 0;
 }
 

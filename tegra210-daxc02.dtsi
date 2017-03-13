@@ -233,6 +233,11 @@ i2c6 = "/host1x/i2c@546c0000";
                     proc-device-tree = "/proc/device-tree/host1x/i2c@546c0000/daxc02_a@10";
                 	status = "okay";
                 };
+                drivernode1 {
+					status = "disabled";
+					pcl_id = "v4l2_focuser_stub";
+					proc-device-tree = "";
+				};
             };
         };
     };
