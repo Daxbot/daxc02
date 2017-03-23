@@ -51,6 +51,7 @@
 #define MT9M021_FINE_INT_TIME           0x3014
 #define MT9M021_COARSE_INT_TIME_CB      0x3016
 #define MT9M021_FINE_INT_TIME_CB        0x3018
+#define MT9M021_FRAME_LENGTH_LINES_CB   0x30AA
 #define MT9M021_X_ODD_INC               0x30A2
 #define MT9M021_Y_ODD_INC               0x30A6
 #define MT9M021_READ_MODE               0x3040
@@ -119,7 +120,7 @@
 
 #define MT9M021_GLOBAL_GAIN_MIN         0x00
 #define MT9M021_GLOBAL_GAIN_MAX         0xFF
-#define MT9M021_GLOBAL_GAIN_DEF         0x10
+#define MT9M021_GLOBAL_GAIN_DEF         0x01
 
 #define MT9M021_EXPOSURE_MIN            1
 #define MT9M021_EXPOSURE_MAX            0x02A0
@@ -338,46 +339,46 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             if(ret < 0) return ret;
             break;
 
-        case V4L2_CID_EXPOSURE:
-            dev_dbg(&client->dev, "%s: V4L2_CID_EXPOSURE\n", __func__);
+        case V4L2_CID_COARSE_TIME:
+            dev_dbg(&client->dev, "%s: V4L2_CID_COARSE_TIME\n", __func__);
             ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, ctrl->val);
-            if(ret < 0) return ret;
-            return mt9m021_write(client, MT9M021_COARSE_INT_TIME_CB, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN\n", __func__);
             ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN, ctrl->val);
-            if(ret < 0) return ret;
-            return mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_GREEN1:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN1\n", __func__);
             ret = mt9m021_write(client, MT9M021_GREEN1_GAIN, ctrl->val);
-            if(ret < 0) return ret;
-            return mt9m021_write(client, MT9M021_GREEN1_GAIN_CB, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_GREEN1_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_RED:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_RED\n", __func__);
             ret = mt9m021_write(client, MT9M021_RED_GAIN, ctrl->val);
-            if(ret < 0) return ret;
-            return mt9m021_write(client, MT9M021_RED_GAIN_CB, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_RED_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_BLUE:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_BLUE\n", __func__);
             ret = mt9m021_write(client, MT9M021_BLUE_GAIN, ctrl->val);
-            if(ret < 0) return ret;
-            return mt9m021_write(client, MT9M021_BLUE_GAIN_CB, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_BLUE_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_GREEN2:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN2\n", __func__);
             ret = mt9m021_write(client, MT9M021_GREEN2_GAIN, ctrl->val);
-            if(ret < 0) return ret;
-            return mt9m021_write(client, MT9M021_GREEN2_GAIN_CB, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_GREEN2_GAIN_CB, ctrl->val);
             break;
 
         case V4L2_CID_ANALOG_GAIN:
@@ -385,7 +386,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
             reg16 = ( reg16 & ~MT9M021_ANALOG_GAIN_MASK ) |
                 ( ( ctrl->val << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK );
-            return mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
+            ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
             break;
 
         case V4L2_CID_HFLIP:
@@ -400,7 +401,6 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             }
             reg16 &= 0xbfff;
             ret = mt9m021_write(client, MT9M021_READ_MODE, reg16);
-            if (ret < 0) return ret;
             break;
 
         case V4L2_CID_VFLIP:
@@ -415,7 +415,6 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             }
             reg16 &= 0x7fff;
             ret = mt9m021_write(client, MT9M021_READ_MODE, reg16);
-            if (ret < 0) return ret;
             break;
 
         case V4L2_CID_TEST_PATTERN:
@@ -426,23 +425,13 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
                 if(ret < 0) return ret;
             }
             ret = mt9m021_write(client, MT9M021_TEST_PATTERN, ctrl->val);
-            if(ret < 0) return ret;
             break;
 
         case V4L2_CID_FRAME_LENGTH:
-            dev_err(&client->dev, "%s: V4L2_CID_FRAME_LENGTH not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_COARSE_TIME:
-            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_COARSE_TIME_SHORT:
-            dev_err(&client->dev, "%s: V4L2_CID_COARSE_TIME_SHORT not implemented.\n", __func__);
-            break;
-
-        case V4L2_CID_GROUP_HOLD:
-            dev_err(&client->dev, "%s: V4L2_CID_GROUP_HOLD not implemented.\n", __func__);
+            dev_dbg(&client->dev, "%s: V4L2_CID_FRAME_LENGTH\n", __func__);
+            ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES_CB, ctrl->val);
             break;
 
         case V4L2_CID_HDR_EN:
@@ -549,15 +538,16 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_EXPOSURE,
-        .name           = "Exposure",
+        .id             = V4L2_CID_COARSE_TIME,
+        .name           = "Coarse Time",
         .type           = V4L2_CTRL_TYPE_INTEGER,
-        .flags          = 0,
+        .flags          = V4L2_CTRL_FLAG_SLIDER,
         .min            = MT9M021_EXPOSURE_MIN,
         .max            = MT9M021_EXPOSURE_MAX,
         .def            = MT9M021_EXPOSURE_DEF,
         .step           = 1,
     },
+    /*
     {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_EXPOSURE_AUTO,
@@ -569,6 +559,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .def            = V4L2_EXPOSURE_MANUAL,
         .step           = 1,
     },
+    */
     {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_HFLIP,
@@ -591,8 +582,6 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .def            = 0,
         .step           = 1,
     },
-
-    // Begin not implemented controls
     {
         .ops = &daxc02_ctrl_ops,
         .id = V4L2_CID_FRAME_LENGTH,
@@ -601,42 +590,11 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .flags = V4L2_CTRL_FLAG_SLIDER,
         .min = 0,
         .max = 0x7fff,
-        .def = 0x07C0,
+        .def = 0x02EB,
         .step = 1,
     },
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_COARSE_TIME,
-        .name = "Coarse Time",
-        .type = V4L2_CTRL_TYPE_INTEGER,
-        .flags = V4L2_CTRL_FLAG_SLIDER,
-        .min = 0x0002,
-        .max = 0x7ff9,
-        .def = 0x7fba,
-        .step = 1,
-    },
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_COARSE_TIME_SHORT,
-        .name = "Coarse Time Short",
-        .type = V4L2_CTRL_TYPE_INTEGER,
-        .flags = V4L2_CTRL_FLAG_SLIDER,
-        .min = 0x0002,
-        .max = 0x7ff9,
-        .def = 0x7fba,
-        .step = 1,
-    },
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_GROUP_HOLD,
-        .name = "Group Hold",
-        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
-        .min = 0,
-        .max = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
-        .menu_skip_mask = 0,
-        .def = 0,
-        .qmenu_int = switch_ctrl_qmenu,
-    },
+
+    // Begin not implemented controls
     {
         .ops = &daxc02_ctrl_ops,
         .id = V4L2_CID_HDR_EN,
@@ -1402,17 +1360,6 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
     struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
 
-    /*
-    switch(format->which)
-    {
-        case V4L2_SUBDEV_FORMAT_TRY:
-
-        case V4L2_SUBDEV_FORMAT_ACTIVE:
-
-        default:
-            return NULL;
-    }
-    */
     format->format = priv->format;
 
     dev_dbg(&client->dev, "%s\n\twidth: %u\n\theight: %u\n\tcode: %u\n",
@@ -1431,9 +1378,8 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
  */
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
 {
-    //struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
-    //struct daxc02 *priv = common_data->priv;
     struct i2c_client *client = v4l2_get_subdevdata(sd);
+    int ret = 0;
 
     dev_dbg(&client->dev, "%s\n\twidth: %u\n\theight: %u\n\tcode: %u\n",
             __func__,
@@ -1441,9 +1387,19 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
             format->format.height,
             format->format.code);
 
+    switch(format->which)
+    {
+        case V4L2_SUBDEV_FORMAT_TRY:
+            ret = camera_common_try_fmt(sd, &format->format);
+        case V4L2_SUBDEV_FORMAT_ACTIVE:
+            ret = camera_common_s_fmt(sd, &format->format);
+        default:
+            ret = 0;
+    }
+
     // TODO: Implement setting formats
 
-    return 0;
+    return ret;
 }
 
 /** mt9m021_get_crop - Gets the sub-device crop.
