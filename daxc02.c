@@ -86,7 +86,7 @@
 
 #define MT9M021_PIXEL_ARRAY_WIDTH       1280
 #define MT9M021_PIXEL_ARRAY_HEIGHT      960
-#define MT9M021_LLP_RECOMMENDED         1650
+#define MT9M021_LLP_RECOMMENDED         0x0672
 
 #define MT9M021_EXT_FREQ                24000000
 #define MT9M021_TARGET_FREQ             74250000
@@ -122,9 +122,9 @@
 #define MT9M021_GLOBAL_GAIN_MAX         0xFF
 #define MT9M021_GLOBAL_GAIN_DEF         0x01
 
-#define MT9M021_EXPOSURE_MIN            1
-#define MT9M021_EXPOSURE_MAX            0x02A0
-#define MT9M021_EXPOSURE_DEF            0x0100
+#define MT9M021_COARSE_INT_TIME_MIN     1
+#define MT9M021_COARSE_INT_TIME_MAX     0x02A0
+#define MT9M021_COARSE_INT_TIME_DEF     0x01C2
 
 static uint16_t mt9m021_seq_data[] = {
     0x3227, 0x0101, 0x0F25, 0x0808, 0x0227, 0x0101, 0x0837, 0x2700,
@@ -542,12 +542,11 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .name           = "Coarse Time",
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
-        .min            = MT9M021_EXPOSURE_MIN,
-        .max            = MT9M021_EXPOSURE_MAX,
-        .def            = MT9M021_EXPOSURE_DEF,
+        .min            = MT9M021_COARSE_INT_TIME_MIN,
+        .max            = MT9M021_COARSE_INT_TIME_MAX,
+        .def            = MT9M021_COARSE_INT_TIME_DEF,
         .step           = 1,
     },
-    /*
     {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_EXPOSURE_AUTO,
@@ -559,7 +558,6 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .def            = V4L2_EXPOSURE_MANUAL,
         .step           = 1,
     },
-    */
     {
         .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_HFLIP,
@@ -1058,12 +1056,12 @@ static int mt9m021_set_size(struct i2c_client *client)
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x04FF);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, 0x02EB);
+    //ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, 0x02EB);
+    //if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, 0x0672);
-    if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, 0x01C2);
-    if(ret < 0) return ret;
+    //ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, MT9M021_COARSE_INT_TIME_DEF);
+    //if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
     if(ret < 0) return ret;
     return mt9m021_write(client, MT9M021_Y_ODD_INC, 0x0001);
