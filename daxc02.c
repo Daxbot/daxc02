@@ -57,11 +57,11 @@
 #define MT9M021_READ_MODE               0x3040
 #define MT9M021_TEST_PATTERN            0x3070
 #define MT9M021_DIGITAL_BINNING         0x3032
-#define MT9M021_BINNING_DEF             0x0020
 
 #define MT9M021_AE_CTRL_REG             0x3100
 #define MT9M021_AE_LUMA_TARGET_REG      0x3102
 #define MT9M021_EMBEDDED_DATA_CTRL      0x3064
+#define MT9M021_DATAPATH_SELECT         0X306E
 
 #define MT9M021_GREEN1_GAIN             0x3056
 #define MT9M021_BLUE_GAIN               0x3058
@@ -107,6 +107,7 @@
 #define MT9M021_WINDOW_WIDTH_MIN        2
 #define MT9M021_WINDOW_WIDTH_MAX        1280
 #define MT9M021_WINDOW_WIDTH_DEF        1280
+#define MT9M021_BINNING_DEF             0x0020
 
 #define MT9M021_RESET                   0x00D9
 #define MT9M021_STREAM_OFF              0x00D8
@@ -118,9 +119,9 @@
 #define MT9M021_ANALOG_GAIN_SHIFT       4
 #define MT9M021_ANALOG_GAIN_MASK        0x0030
 
-#define MT9M021_GLOBAL_GAIN_MIN         0x00
+#define MT9M021_GLOBAL_GAIN_MIN         0x01
 #define MT9M021_GLOBAL_GAIN_MAX         0xFF
-#define MT9M021_GLOBAL_GAIN_DEF         0x01
+#define MT9M021_GLOBAL_GAIN_DEF         0x10
 
 #define MT9M021_COARSE_INT_TIME_MIN     1
 #define MT9M021_COARSE_INT_TIME_MAX     0x02A0
@@ -159,28 +160,28 @@ enum mt9m021_modes{
     MT9M021_DEFAULT_MODE
 };
 
-static const int mt9m021_60fps[] = {
-    60,
+static const int mt9m021_30fps[] = {
+    30,
 };
 
 static const struct camera_common_frmfmt mt9m021_frmfmt[] = {
-    {{MT9M021_WINDOW_WIDTH_DEF, MT9M021_WINDOW_HEIGHT_DEF},   mt9m021_60fps,  1, 0,   MT9M021_DEFAULT_MODE},
+    {{MT9M021_WINDOW_WIDTH_DEF, MT9M021_WINDOW_HEIGHT_DEF},   mt9m021_30fps,  1, 0,   MT9M021_DEFAULT_MODE},
 };
 
 #ifdef USE_RAW8
 static const struct camera_common_colorfmt mt9m021_colorfmt[] = {
     {
-        V4L2_MBUS_FMT_SGRBG8_1X8,
+        V4L2_MBUS_FMT_SRGGB8_1X8,
         V4L2_COLORSPACE_SRGB,
-        V4L2_PIX_FMT_SGRBG8,
+        V4L2_PIX_FMT_SRGGB8,
     },
 };
 #else
 static const struct camera_common_colorfmt mt9m021_colorfmt[] = {
     {
-        V4L2_MBUS_FMT_SGRBG12_1X12,
+        V4L2_MBUS_FMT_SRGGB12_1X12,
         V4L2_COLORSPACE_SRGB,
-        V4L2_PIX_FMT_SGRBG12,
+        V4L2_PIX_FMT_SRGGB12,
     },
 };
 #endif
@@ -593,6 +594,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
 
     // Begin not implemented controls
+    /*
     {
         .ops = &daxc02_ctrl_ops,
         .id = V4L2_CID_HDR_EN,
@@ -604,6 +606,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .def = 0,
         .qmenu_int = switch_ctrl_qmenu,
     },
+    */
 };
 
 
@@ -792,7 +795,7 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
         return ret;
     }
 
-    dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], addr);
+    //dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], addr);
 
     return (buf[0] << 8) | buf[1];
 }
@@ -809,7 +812,7 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
     uint16_t __addr, __data;
     int ret;
 
-    dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, data, addr);
+    //dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, data, addr);
 
     /* 16-bit addressable register */
     __addr = cpu_to_be16(addr);
@@ -1050,12 +1053,12 @@ static int mt9m021_set_size(struct i2c_client *client)
     if (ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_Y_ADDR_START, 0x0078);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_X_ADDR_START, 0);
+    ret = mt9m021_write(client, MT9M021_X_ADDR_START, 1);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_Y_ADDR_END, 0x0347);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x04FF);
-    if(ret < 0) return ret;
+    //ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x0500);
+    //if(ret < 0) return ret;
     //ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, 0x02EB);
     //if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
@@ -1249,12 +1252,12 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
-    ret = mt9m021_write(client, MT9M021_READ_MODE, 0);
-    if (ret < 0)
-    {
-        dev_dbg(&client->dev, "%s: Failed to disable read mode\n",__func__);
-        return ret;
-    }
+    // TODO: This overwrites the gain and exposure set by the v4l2 framework.
+    // Remove it later once I figure out nvgstcapture
+    mt9m021_write(client, MT9M021_COARSE_INT_TIME, MT9M021_COARSE_INT_TIME_DEF);
+    mt9m021_write(client, MT9M021_COARSE_INT_TIME_CB, MT9M021_COARSE_INT_TIME_DEF);
+    mt9m021_write(client, MT9M021_GLOBAL_GAIN, MT9M021_GLOBAL_GAIN_DEF);
+    mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, MT9M021_GLOBAL_GAIN_DEF);
 
     /* start streaming */
     return mt9m021_write(client, MT9M021_RESET_REG, 0x10DC);
@@ -1766,9 +1769,9 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->crop.top              = MT9M021_ROW_START_DEF;
 
 #ifdef USE_RAW8
-    priv->format.code           = V4L2_MBUS_FMT_SGRBG8_1X8;
+    priv->format.code           = V4L2_MBUS_FMT_SRGGB8_1X8;
 #else
-    priv->format.code           = V4L2_MBUS_FMT_SGRBG12_1X12;
+    priv->format.code           = V4L2_MBUS_FMT_SRGGB12_1X12;
 #endif
 
     priv->format.width          = MT9M021_WINDOW_WIDTH_DEF;

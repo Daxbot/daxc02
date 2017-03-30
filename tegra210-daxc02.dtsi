@@ -185,15 +185,15 @@ i2c6 = "/host1x/i2c@546c0000";
 
                     active_w = "1280";
                     active_h = "720";
-                    pixel_t = "bayer_bggr12";
+                    pixel_t = "bayer_rggb12";
                     readout_orientation = "0";
                     line_length = "1650";
                     inherent_gain = "1";
                     mclk_multiplier = "3.094";
                     pix_clk_hz = "74250000";
 
-                    min_gain_val = "1.0";
-                    max_gain_val = "3.0";
+                    min_gain_val = "1";
+                    max_gain_val = "255";
                     min_hdr_ratio = "";
                     max_hdr_ratio = "";
                     min_framerate = "1";
