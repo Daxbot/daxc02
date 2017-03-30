@@ -1,4 +1,3 @@
-#define DEBUG
 //#define USE_RAW8
 
 #include <linux/device.h>
@@ -100,7 +99,7 @@
 #define MT9M021_ROW_START_DEF           0x0078
 #define MT9M021_COLUMN_START_MIN        0
 #define MT9M021_COLUMN_START_MAX        1280
-#define MT9M021_COLUMN_START_DEF        0
+#define MT9M021_COLUMN_START_DEF        1
 #define MT9M021_WINDOW_HEIGHT_MIN       2
 #define MT9M021_WINDOW_HEIGHT_MAX       720
 #define MT9M021_WINDOW_HEIGHT_DEF       720
@@ -155,7 +154,6 @@ static uint16_t mt9m021_analog_setting[] = {
         NVIDIA Camera Common Defines
 ****************************************************/
 
-// TODO: Figure out if any of these are actually needed.
 enum mt9m021_modes{
     MT9M021_DEFAULT_MODE
 };
@@ -246,14 +244,10 @@ struct daxc02 {
     struct v4l2_subdev                  *subdev;
     struct media_pad                    pad;
 
-    int32_t                             group_hold_prev;
-    bool                                group_hold_en;
     struct camera_common_data           *s_data;
     struct camera_common_pdata          *pdata;
 
-    struct v4l2_rect                    crop;  /* Sensor window */
     struct v4l2_mbus_framefmt           format;
-    int                                 power_count;
     enum v4l2_exposure_auto_type        autoexposure;
 
     struct v4l2_ctrl                    *ctrls[];
@@ -285,8 +279,6 @@ static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh 
 static int mt9m021_enum_frame_size(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_frame_size_enum *fse);
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *fmt);
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format);
-static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop);
-static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop);
 static int daxc02_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static int daxc02_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client);
@@ -340,6 +332,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             if(ret < 0) return ret;
             break;
 
+        case V4L2_CID_EXPOSURE:
         case V4L2_CID_COARSE_TIME:
             dev_dbg(&client->dev, "%s: V4L2_CID_COARSE_TIME\n", __func__);
             ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, ctrl->val);
@@ -433,10 +426,6 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, ctrl->val);
             if(ret < 0) break;
             ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES_CB, ctrl->val);
-            break;
-
-        case V4L2_CID_HDR_EN:
-            dev_err(&client->dev, "%s: V4L2_CID_HDR_EN not implemented.\n", __func__);
             break;
 
         default:
@@ -582,31 +571,16 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .step           = 1,
     },
     {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_FRAME_LENGTH,
-        .name = "Frame Length",
-        .type = V4L2_CTRL_TYPE_INTEGER,
-        .flags = V4L2_CTRL_FLAG_SLIDER,
-        .min = 0,
-        .max = 0x7fff,
-        .def = 0x02EB,
-        .step = 1,
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_FRAME_LENGTH,
+        .name           = "Frame Length",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = V4L2_CTRL_FLAG_SLIDER,
+        .min            = 0,
+        .max            = 0x7fff,
+        .def            = 0x02EB,
+        .step           = 1,
     },
-
-    // Begin not implemented controls
-    /*
-    {
-        .ops = &daxc02_ctrl_ops,
-        .id = V4L2_CID_HDR_EN,
-        .name = "HDR enable",
-        .type = V4L2_CTRL_TYPE_INTEGER_MENU,
-        .min = 0,
-        .max = 0,
-        .menu_skip_mask = 0,
-        .def = 0,
-        .qmenu_int = switch_ctrl_qmenu,
-    },
-    */
 };
 
 
@@ -795,7 +769,7 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
         return ret;
     }
 
-    //dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], addr);
+    dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], addr);
 
     return (buf[0] << 8) | buf[1];
 }
@@ -812,7 +786,7 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
     uint16_t __addr, __data;
     int ret;
 
-    //dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, data, addr);
+    dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, data, addr);
 
     /* 16-bit addressable register */
     __addr = cpu_to_be16(addr);
@@ -1025,30 +999,15 @@ static int mt9m021_pll_setup(struct i2c_client *client, uint16_t m, uint8_t n, u
     return ret;
 }
 
-/** mt9m021_set_size - set the frame resolution.
+/** mt9m021_set_size - set the frame resolution to 1280x720.
  * @client: pointer to the i2c client.
  */
 static int mt9m021_set_size(struct i2c_client *client)
 {
-    //struct camera_common_data *common_data = to_camera_common_data(client);
-    //struct daxc02 *priv = common_data->priv;
     int ret;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    /*
-    Leopard Recommendations:
-
-    0x3002, 0x0078,     // Y_ADDR_START
-    0x3004, 0x0000,     // X_ADDR_START
-    0x3006, 0x0347,     // Y_ADDR_END
-    0x3008, 0x04FF,     // X_ADDR_END
-    0x300A, 0x02EB,     // FRAME_LENGTH_LINES
-    0x300C, 0x0672,     // LINE_LENGTH_PCK,59.99~60.02
-    0x3012, 0x01C2,     // COARSE_INTEGRATION_TIME
-    0x30A2, 0x0001,     // X_ODD_INC
-    0x30A6, 0x0001,     // Y_ODD_INC
-    */
     ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_BINNING_DEF);
     if (ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_Y_ADDR_START, 0x0078);
@@ -1057,42 +1016,13 @@ static int mt9m021_set_size(struct i2c_client *client)
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_Y_ADDR_END, 0x0347);
     if(ret < 0) return ret;
-    //ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x0500);
-    //if(ret < 0) return ret;
-    //ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, 0x02EB);
-    //if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
-    if(ret < 0) return ret;
-    //ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, MT9M021_COARSE_INT_TIME_DEF);
-    //if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
-    if(ret < 0) return ret;
-    return mt9m021_write(client, MT9M021_Y_ODD_INC, 0x0001);
-
-    // TODO: Make the size not hardcoded
-
-    /*
-    ret = mt9m021_write(client, MT9M021_DIGITAL_BINNING, MT9M021_BINNING_DEF);
-    if (ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_Y_ADDR_START, priv->crop.top);
-    if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_X_ADDR_START, priv->crop.left);
-    if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_Y_ADDR_END, priv->crop.top + priv->crop.height - 1);
-    if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_X_ADDR_END, priv->crop.left + priv->crop.width - 1);
-    if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, priv->crop.height + 27);
+    ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x0500);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
-    if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, 0x01C2);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
     if(ret < 0) return ret;
     return mt9m021_write(client, MT9M021_Y_ODD_INC, 0x0001);
-    */
-
 }
 
 /** mt9m021_is_streaming - returns if the sensor is streaming.
@@ -1252,13 +1182,6 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
-    // TODO: This overwrites the gain and exposure set by the v4l2 framework.
-    // Remove it later once I figure out nvgstcapture
-    mt9m021_write(client, MT9M021_COARSE_INT_TIME, MT9M021_COARSE_INT_TIME_DEF);
-    mt9m021_write(client, MT9M021_COARSE_INT_TIME_CB, MT9M021_COARSE_INT_TIME_DEF);
-    mt9m021_write(client, MT9M021_GLOBAL_GAIN, MT9M021_GLOBAL_GAIN_DEF);
-    mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, MT9M021_GLOBAL_GAIN_DEF);
-
     /* start streaming */
     return mt9m021_write(client, MT9M021_RESET_REG, 0x10DC);
 }
@@ -1398,84 +1321,7 @@ static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
             ret = 0;
     }
 
-    // TODO: Implement setting formats
-
     return ret;
-}
-
-/** mt9m021_get_crop - Gets the sub-device crop.
- * @sd:     pointer to the v4l2 sub-device.
- * @fh:     pointer to the v4l2 sub-device file handle.
- * @crop:   where to store the crop.
- */
-static int mt9m021_get_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
-{
-    struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
-    struct daxc02 *priv = common_data->priv;
-    struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-    dev_dbg(&client->dev, "%s\n", __func__);
-
-    crop->rect = priv->crop;
-
-    return 0;
-}
-
-/** mt9m021_set_crop - Sets the sub-device crop.
- * @sd:     pointer to the v4l2 sub-device.
- * @fh:     pointer to the v4l2 sub-device file handle.
- * @crop:   new crop to set.
- */
-// TODO: Aptina Code
-static int mt9m021_set_crop(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_crop *crop)
-{
-    struct camera_common_data *common_data = container_of(sd, struct camera_common_data, subdev);
-    struct daxc02 *priv = common_data->priv;
-    struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct v4l2_mbus_framefmt *__format;
-    struct v4l2_rect *__crop;
-    struct v4l2_rect rect;
-
-    dev_dbg(&client->dev, "%s\n", __func__);
-
-    /* Clamp the crop rectangle boundaries and align them to a multiple of 2
-    * pixels to ensure a GRBG Bayer pattern.
-    */
-    rect.left = clamp(ALIGN(crop->rect.left, 2), MT9M021_COLUMN_START_MIN,
-            MT9M021_COLUMN_START_MAX);
-    rect.top = clamp(ALIGN(crop->rect.top, 2), MT9M021_ROW_START_MIN,
-            MT9M021_ROW_START_MAX);
-    rect.width = clamp(ALIGN(crop->rect.width, 2),
-            MT9M021_WINDOW_WIDTH_MIN,
-            MT9M021_WINDOW_WIDTH_MAX);
-    rect.height = clamp(ALIGN(crop->rect.height, 2),
-            MT9M021_WINDOW_HEIGHT_MIN,
-            MT9M021_WINDOW_HEIGHT_MAX);
-
-    rect.width = min(rect.width, MT9M021_PIXEL_ARRAY_WIDTH - rect.left);
-    rect.height = min(rect.height, MT9M021_PIXEL_ARRAY_HEIGHT - rect.top);
-
-    __crop = &priv->crop;
-
-    /* Reset the output image size if the crop rectangle size has
-    * been modified.
-    */
-    if (rect.width != __crop->width || rect.height != __crop->height)
-    {
-        __format = &priv->format;
-        __format->width = rect.width;
-        __format->height = rect.height;
-    }
-
-    *__crop = rect;
-    crop->rect = rect;
-
-    priv->crop.left      = crop->rect.left;
-    priv->crop.top       = crop->rect.top;
-    priv->crop.width     = crop->rect.width;
-    priv->crop.height    = crop->rect.height;
-
-    return 0;
 }
 
 /*
@@ -1486,8 +1332,6 @@ static struct v4l2_subdev_pad_ops mt9m021_subdev_pad_ops = {
     .enum_frame_size        = mt9m021_enum_frame_size,
     .get_fmt                = mt9m021_get_format,
     .set_fmt                = mt9m021_set_format,
-    .get_crop               = mt9m021_get_crop,
-    .set_crop               = mt9m021_set_crop,
 };
 
 
@@ -1761,12 +1605,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->subdev                = &common_data->subdev;
     priv->subdev->dev           = &client->dev;
     priv->s_data->dev           = &client->dev;
-    priv->group_hold_prev       = 0;
-
-    priv->crop.width            = MT9M021_WINDOW_WIDTH_MAX;
-    priv->crop.height           = MT9M021_WINDOW_HEIGHT_MAX;
-    priv->crop.left             = MT9M021_COLUMN_START_DEF;
-    priv->crop.top              = MT9M021_ROW_START_DEF;
 
 #ifdef USE_RAW8
     priv->format.code           = V4L2_MBUS_FMT_SRGGB8_1X8;
@@ -1891,7 +1729,7 @@ static struct i2c_driver daxc02_i2c_driver = {
 module_i2c_driver(daxc02_i2c_driver);
 MODULE_DEVICE_TABLE(of, daxc02_of_match);
 MODULE_DEVICE_TABLE(i2c, daxc02_id);
-MODULE_DESCRIPTION("Nova Dynamics DAX-C02 dual MIPI camera driver");
+MODULE_DESCRIPTION("Nova Dynamics DAX-C02 MIPI camera driver");
 MODULE_AUTHOR("Wilkins White <ww@novadynamics.com>");
 MODULE_LICENSE("GPL v2");
 
