@@ -85,7 +85,6 @@
 
 #define MT9M021_PIXEL_ARRAY_WIDTH       1280
 #define MT9M021_PIXEL_ARRAY_HEIGHT      960
-#define MT9M021_LLP_RECOMMENDED         0x0672
 
 #define MT9M021_EXT_FREQ                24000000
 #define MT9M021_TARGET_FREQ             74250000
@@ -119,9 +118,17 @@
 #define MT9M021_GLOBAL_GAIN_MAX         0xFF
 #define MT9M021_GLOBAL_GAIN_DEF         0x10
 
-#define MT9M021_COARSE_INT_TIME_MIN     1
-#define MT9M021_COARSE_INT_TIME_MAX     0x02A0
-#define MT9M021_COARSE_INT_TIME_DEF     0x01C2
+#define MT9M021_EXPOSURE_MIN            0x0001
+#define MT9M021_EXPOSURE_MAX            0x02A0
+#define MT9M021_EXPOSURE_DEF            0x01C2
+
+#define MT9M021_FINE_INT_TIME_MIN       0x0000
+#define MT9M021_FINE_INT_TIME_MAX       0xFFFF
+#define MT9M021_FINE_INT_TIME_DEF       0x0380
+
+#define MT9M021_LLP_MIN                 0x0672
+#define MT9M021_LLP_MAX                 0xFFFF
+#define MT9M021_LLP_DEF                 0x0672
 
 static uint16_t mt9m021_seq_data[] = {
     0x3227, 0x0101, 0x0F25, 0x0808, 0x0227, 0x0101, 0x0837, 0x2700,
@@ -217,12 +224,14 @@ struct daxc02_mipi_settings daxc02_mipi_output[] = {
    {4, 0x0228, 0x0000000C},
    {4, 0x022C, 0x00000006},
    {4, 0x0234, 0x0000001F}, // Voltage regulator enable for data 0-3 and clock lanes.
-   {4, 0x0238, 0x00000001}, // Continuous clock mode. Maintains the clock lane output regardless of data lane operation
+   //{4, 0x0238, 0x00000001}, // Continuous clock mode. Maintains the clock lane output regardless of data lane operation
+   {4, 0x0238, 0x00000000}, // Discontinuous clock mode.
    {4, 0x0518, 0x00000001}, // CSI start
 
-   {4, 0x0500, 0xA30080A1}, // 1 data lane
-   //{4, 0x0500, 0xA30080A3}, // 2 data lanes
-   //{4, 0x0500, 0xA30080A7}, // 4 data lanes
+   //{4, 0x0500, 0xA30080A1}, // 1 data lane, continuous clk
+   {4, 0x0500, 0xA30080A1}, // 1 data lane, discontinuous clk
+   //{4, 0x0500, 0xA30080A3}, // 2 data lanes, continuous clk
+   //{4, 0x0500, 0xA30080A7}, // 4 data lanes, continuous clk
 
    {4, 0x0204, 0x00000001}, // TX PPI starts
    {2, 0x0004, 0x0044},
@@ -330,11 +339,17 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             break;
 
         case V4L2_CID_EXPOSURE:
-        case V4L2_CID_COARSE_TIME:
-            dev_dbg(&client->dev, "%s: V4L2_CID_COARSE_TIME\n", __func__);
+            dev_dbg(&client->dev, "%s: V4L2_CID_EXPOSURE\n", __func__);
             ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, ctrl->val);
             if(ret < 0) break;
-            ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME_CB, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, ctrl->val);
+            break;
+
+        case V4L2_CID_COARSE_TIME:
+            dev_dbg(&client->dev, "%s: V4L2_CID_COARSE_TIME\n", __func__);
+            ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, ctrl->val);
+            if(ret < 0) break;
+            ret = mt9m021_write(client, MT9M021_FINE_INT_TIME_CB, ctrl->val);
             break;
 
         case V4L2_CID_GAIN:
@@ -420,9 +435,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
         case V4L2_CID_FRAME_LENGTH:
             dev_dbg(&client->dev, "%s: V4L2_CID_FRAME_LENGTH\n", __func__);
-            ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, ctrl->val);
-            if(ret < 0) break;
-            ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES_CB, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, ctrl->val);
             break;
 
         default:
@@ -529,9 +542,9 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .name           = "Coarse Time",
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
-        .min            = MT9M021_COARSE_INT_TIME_MIN,
-        .max            = MT9M021_COARSE_INT_TIME_MAX,
-        .def            = MT9M021_COARSE_INT_TIME_DEF,
+        .min            = MT9M021_FINE_INT_TIME_MIN,
+        .max            = MT9M021_FINE_INT_TIME_MAX,
+        .def            = MT9M021_FINE_INT_TIME_DEF,
         .step           = 1,
     },
     {
@@ -573,9 +586,9 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .name           = "Frame Length",
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
-        .min            = 0,
-        .max            = 0x7fff,
-        .def            = 0x02EB,
+        .min            = MT9M021_LLP_MIN,
+        .max            = MT9M021_LLP_MAX,
+        .def            = MT9M021_LLP_DEF,
         .step           = 1,
     },
 };
@@ -938,8 +951,8 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
     ret = mt9m021_write(client, 0x3180, 0x8000);
     if (ret < 0) return ret;
 
-    ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0380);
-    if (ret < 0) return ret;
+    //ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0380);
+    //if (ret < 0) return ret;
 
     for(i = 0; i < ARRAY_SIZE(mt9m021_analog_setting); i++)
     {
@@ -1015,7 +1028,9 @@ static int mt9m021_set_size(struct i2c_client *client)
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x0500);
     if(ret < 0) return ret;
-    ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
+    //ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_DEF);
+    //if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, MT9M021_EXPOSURE_DEF);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
     if(ret < 0) return ret;

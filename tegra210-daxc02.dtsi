@@ -179,7 +179,7 @@ i2c6 = "/host1x/i2c@546c0000";
                     mclk_khz = "24000";
                     num_lanes = "1";
                     tegra_sinterface = "serial_a";
-                    discontinuous_clk = "no";
+                    discontinuous_clk = "yes";
                     dpcm_enable = "false";
                     cil_settletime = "0";
 
@@ -187,7 +187,7 @@ i2c6 = "/host1x/i2c@546c0000";
                     active_h = "720";
                     pixel_t = "bayer_rggb12";
                     readout_orientation = "0";
-                    line_length = "1650";
+                    line_length = "1280";
                     inherent_gain = "1";
                     mclk_multiplier = "3.094";
                     pix_clk_hz = "74250000";
@@ -198,8 +198,8 @@ i2c6 = "/host1x/i2c@546c0000";
                     max_hdr_ratio = "";
                     min_framerate = "1";
                     max_framerate = "60";
-                    min_exp_time = "1";
-                    max_exp_time = "672";
+                    min_exp_time = "0";
+                    max_exp_time = "255";
                     embedded_metadata_height = "0";
                 };
                 ports {
