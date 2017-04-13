@@ -228,10 +228,9 @@ struct daxc02_mipi_settings daxc02_mipi_output[] = {
    {4, 0x0238, 0x00000000}, // Discontinuous clock mode.
    {4, 0x0518, 0x00000001}, // CSI start
 
-   //{4, 0x0500, 0xA30080A1}, // 1 data lane, continuous clk
-   {4, 0x0500, 0xA30080A1}, // 1 data lane, discontinuous clk
-   //{4, 0x0500, 0xA30080A3}, // 2 data lanes, continuous clk
-   //{4, 0x0500, 0xA30080A7}, // 4 data lanes, continuous clk
+   {4, 0x0500, 0xA30080A1}, // 1 data lane
+   //{4, 0x0500, 0xA30080A3}, // 2 data lanes
+   //{4, 0x0500, 0xA30080A7}, // 4 data lanes
 
    {4, 0x0204, 0x00000001}, // TX PPI starts
    {2, 0x0004, 0x0044},
