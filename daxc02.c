@@ -1,4 +1,5 @@
 //#define USE_RAW8
+//#define DEBUG
 
 #include <linux/device.h>
 #include <linux/delay.h>
@@ -33,6 +34,7 @@
 #define MT9M021_DARK_CTRL               0x3044
 #define MT9M021_DATA_PEDESTAL           0x301E
 #define MT9M021_COLUMN_CORRECTION       0x30D4
+#define MT9M021_FLASH                   0x3046
 
 #define MT9M021_VT_SYS_CLK_DIV          0x302A
 #define MT9M021_VT_PIX_CLK_DIV          0x302C
@@ -107,6 +109,8 @@
 #define MT9M021_RESET                   0x00D9
 #define MT9M021_STREAM_OFF              0x00D8
 #define MT9M021_STREAM_ON               0x00DC
+#define MT9M021_MASTER_MODE             0x10DC
+#define MT9M021_TRIGGER_MODE            0x19D8
 
 #define MT9M021_ANALOG_GAIN_MIN         0x0
 #define MT9M021_ANALOG_GAIN_MAX         0x3
@@ -254,6 +258,7 @@ struct daxc02 {
 
     struct v4l2_mbus_framefmt           format;
     enum v4l2_exposure_auto_type        autoexposure;
+    const char*                         trigger_mode;
 
     struct v4l2_ctrl                    *ctrls[];
 };
@@ -277,7 +282,8 @@ static int mt9m021_rev2_settings(struct i2c_client *client);
 static int mt9m021_pll_setup(struct i2c_client *client, uint16_t m, uint8_t n, uint8_t p1, uint8_t p2);
 static int mt9m021_set_size(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
-static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode );
+static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode);
+static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
 static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status);
 static int mt9m021_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_mbus_code_enum *code);
@@ -286,6 +292,7 @@ static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format);
 static int daxc02_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static int daxc02_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
+static int daxc02_get_trigger_mode(struct daxc02 *priv);
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client);
 static int daxc02_ctrls_init(struct daxc02 *priv);
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id);
@@ -331,6 +338,11 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
     if (priv->power.state == SWITCH_OFF) return 0;
 
     switch (ctrl->id) {
+        case V4L2_CID_FLASH_LED_MODE:
+            dev_dbg(&client->dev, "%s: V4L2_CID_FLASH_LED_MODE\n", __func__);
+            ret = mt9m021_set_flash(client, (enum v4l2_flash_led_mode)ctrl->val);
+            break;
+
         case V4L2_CID_EXPOSURE_AUTO:
             dev_dbg(&client->dev, "%s: V4L2_CID_EXPOSURE_AUTO\n", __func__);
             ret = mt9m021_set_autoexposure(client, (enum v4l2_exposure_auto_type)ctrl->val);
@@ -555,6 +567,17 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .min            = V4L2_EXPOSURE_MANUAL,
         .max            = V4L2_EXPOSURE_SHUTTER_PRIORITY,
         .def            = V4L2_EXPOSURE_MANUAL,
+        .step           = 1,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_FLASH_LED_MODE,
+        .name           = "Flash",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = 0,
+        .min            = V4L2_FLASH_LED_MODE_NONE,
+        .max            = V4L2_FLASH_LED_MODE_FLASH,
+        .def            = V4L2_FLASH_LED_MODE_FLASH,
         .step           = 1,
     },
     {
@@ -1051,11 +1074,44 @@ static int mt9m021_is_streaming(struct i2c_client *client)
     return (streaming != 0);
 }
 
+/** mt9m021_set_flash - enables or disables flash.
+ * @client: pointer to the i2c client.
+ * @flash_mode: v4l2 flash mode.
+ */
+static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode )
+{
+    int ret = 0;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
+
+    switch(flash_mode)
+    {
+        case V4L2_FLASH_LED_MODE_NONE:
+            ret = mt9m021_write(client, MT9M021_FLASH, 0x0000);
+            break;
+
+        case V4L2_FLASH_LED_MODE_FLASH:
+            ret = mt9m021_write(client, MT9M021_FLASH, 0x0180);
+            break;
+
+        case V4L2_FLASH_LED_MODE_TORCH:
+            dev_err(&client->dev, "Unsupported flash mode requested: %d\n", flash_mode);
+            ret = -EINVAL;
+            break;
+
+        default:
+            dev_err(&client->dev, "Flash mode out of range: %d\n", flash_mode);
+            break;
+    }
+
+    return ret;
+}
+
 /** mt9m021_set_autoexposure - enables or disables autoexposure.
  * @client: pointer to the i2c client.
  * @ae_mode: v4l2 autoexposure mode.
  */
-static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode )
+static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode )
 {
     struct camera_common_data *common_data = to_camera_common_data(client);
     struct daxc02 *priv = common_data->priv;
@@ -1138,63 +1194,77 @@ static int mt9m021_set_autoexposure( struct i2c_client *client, enum v4l2_exposu
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    int ret;
+    struct camera_common_data *common_data = to_camera_common_data(client);
+    struct daxc02 *priv = (struct daxc02 *)common_data->priv;
+    int ret = 0;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    if (!enable) return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
+    if (!enable) 
+    {
+        dev_info(&client->dev, "Ending stream\n");
+        return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
+    }
+
+    dev_info(&client->dev, "Starting stream\n");
 
     ret = daxc02_bridge_setup(client);
     if (ret < 0)
     {
-        dev_dbg(&client->dev, "%s: Failed to setup mipi bridge\n",__func__);
+        dev_err(&client->dev, "%s: Failed to setup mipi bridge\n", __func__);
         return ret;
     }
 
     ret = mt9m021_sequencer_settings(client);
     if (ret < 0)
     {
-        dev_dbg(&client->dev, "%s: Failed to setup sequencer\n",__func__);
+        dev_err(&client->dev, "%s: Failed to setup sequencer\n", __func__);
         return ret;
     }
 
     ret = mt9m021_pll_setup(client, MT9M021_PLL_M, MT9M021_PLL_N, MT9M021_PLL_P1, MT9M021_PLL_P2);
     if (ret < 0)
     {
-        dev_dbg(&client->dev, "%s: Failed to setup pll\n",__func__);
+        dev_err(&client->dev, "%s: Failed to setup pll\n", __func__);
         return ret;
     }
 
     ret = mt9m021_col_correction(client);
     if (ret < 0)
     {
-        dev_dbg(&client->dev, "%s: Failed to setup column correction\n",__func__);
+        dev_err(&client->dev, "%s: Failed to setup column correction\n", __func__);
         return ret;
     }
 
     ret = mt9m021_rev2_settings(client);
     if (ret < 0)
     {
-        dev_dbg(&client->dev, "%s: Failed to setup Rev2 optimised settings\n",__func__);
+        dev_err(&client->dev, "%s: Failed to setup Rev2 optimised settings\n", __func__);
         return ret;
     }
 
     ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1802);
     if (ret < 0)
     {
-        dev_dbg(&client->dev, "%s: Failed to disable embedded data\n",__func__);
+        dev_err(&client->dev, "%s: Failed to disable embedded data\n", __func__);
         return ret;
     }
 
     ret = mt9m021_set_size(client);
     if (ret < 0)
     {
-        dev_dbg(&client->dev, "%s: Failed to setup resolution\n",__func__);
+        dev_err(&client->dev, "%s: Failed to setup resolution\n", __func__);
         return ret;
     }
 
     /* start streaming */
-    return mt9m021_write(client, MT9M021_RESET_REG, 0x10DC);
+    if(strstr(priv->trigger_mode, "slave") != NULL)
+    {
+        ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_TRIGGER_MODE);
+    }
+    else ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_MASTER_MODE);
+
+    return ret;
 }
 
 /** daxc02_g_input_status - get input status.
@@ -1423,7 +1493,38 @@ static struct of_device_id daxc02_of_match[] = {
         { },
 };
 
-/** camera_common_pdata - Parses the device tree to load camera common data.
+/** daxc02_parse_dt - Fetch the trigger mode from the device tree
+ * @priv: pointer to the daxc02 private structure
+ */
+ static int daxc02_get_trigger_mode(struct daxc02 *priv)
+ {
+    int err = 0;
+    struct i2c_client *client = priv->i2c_client;
+    struct device_node *node = client->dev.of_node;
+    const struct of_device_id *match;
+
+    dev_dbg(&client->dev, "%s\n", __func__);
+
+    if (!node) return -EFAULT;
+
+    match = of_match_device(daxc02_of_match, &client->dev);
+    if (!match)
+    {
+        dev_err(&client->dev, "Failed to find matching dt id\n");
+        return -EFAULT;
+    }
+
+    err = of_property_read_string(node, "trigger_mode", &priv->trigger_mode);
+    if(err == -EINVAL) 
+    {
+        dev_warn(&client->dev, "trigger_mode not in device tree\n");
+        *(&priv->trigger_mode) = "master"; 
+    }
+
+    return 0;
+ }
+
+/** daxc02_parse_dt - Parses the device tree to load camera common data.
  * @client: pointer to the i2c client.
  */
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
@@ -1459,32 +1560,28 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
     board_priv_pdata->use_cam_gpio =
         of_property_read_bool(node, "cam,use-cam-gpio");
 
-    err = of_property_read_string(node, "avdd-reg",
-            &board_priv_pdata->regulators.avdd);
+    err = of_property_read_string(node, "avdd-reg", &board_priv_pdata->regulators.avdd);
     if (err)
     {
         dev_err(&client->dev, "avdd-reg not in DT\n");
         goto error;
     }
 
-    err = of_property_read_string(node, "iovdd-reg",
-            &board_priv_pdata->regulators.iovdd);
+    err = of_property_read_string(node, "iovdd-reg", &board_priv_pdata->regulators.iovdd);
     if (err)
     {
         dev_err(&client->dev, "iovdd-reg not in DT\n");
         goto error;
     }
 
-    err = of_property_read_string(node, "dvdd-reg",
-            &board_priv_pdata->regulators.dvdd);
+    err = of_property_read_string(node, "dvdd-reg", &board_priv_pdata->regulators.dvdd);
     if (err)
     {
         dev_err(&client->dev, "dvdd-reg not in DT\n");
         goto error;
     }
 
-    board_priv_pdata->has_eeprom =
-        of_property_read_bool(node, "has-eeprom");
+    board_priv_pdata->has_eeprom = of_property_read_bool(node, "has-eeprom");
 
     return board_priv_pdata;
 
@@ -1627,6 +1724,14 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->format.height         = MT9M021_WINDOW_HEIGHT_DEF;
     priv->format.field          = V4L2_FIELD_NONE;
     priv->format.colorspace     = V4L2_COLORSPACE_SRGB;
+
+    err = daxc02_get_trigger_mode(priv);
+    if (err) return err;
+    
+    if(strstr(priv->trigger_mode, "slave") != NULL)
+    {
+        dev_info(&client->dev, "slave mode activated\n");
+    }
 
     err = daxc02_power_get(priv);
     if (err) return err;
