@@ -1,5 +1,5 @@
 //#define USE_RAW8
-//#define DEBUG
+#define DEBUG
 
 #include <linux/device.h>
 #include <linux/delay.h>
@@ -166,12 +166,10 @@ enum mt9m021_modes{
     MT9M021_DEFAULT_MODE
 };
 
-static const int mt9m021_30fps[] = {
-    30,
-};
+static const int mt9m021_framerates[] = {30, 40, 50, 60,};
 
 static const struct camera_common_frmfmt mt9m021_frmfmt[] = {
-    {{MT9M021_WINDOW_WIDTH_DEF, MT9M021_WINDOW_HEIGHT_DEF},   mt9m021_30fps,  1, 0,   MT9M021_DEFAULT_MODE},
+    {{MT9M021_WINDOW_WIDTH_DEF, MT9M021_WINDOW_HEIGHT_DEF},   mt9m021_framerates,  1, 0,   MT9M021_DEFAULT_MODE},
 };
 
 #ifdef USE_RAW8
