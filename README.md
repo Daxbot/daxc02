@@ -1,4 +1,4 @@
-Installation
+Dax Circuit 02
 ============
 
 Dev Environment Setup
@@ -52,14 +52,12 @@ export SOURCEDIR=$DEVDIR/64_TX1/Linux_for_Tegra_64_tx1/sources/kernel_source/
 
 # Link new device tree entries
 cd $SOURCEDIR/arch/arm64/boot/dts/tegra210-platforms/
-ln -s $GIT/dax-drivers/daxc02/tegra210-daxc02.dtsi
-ln -s $GIT/dax-drivers/daxc03/tegra210-daxc03.dtsi
+ln -s $GIT/daxc02/tegra210-daxc02.dtsi
 
 # Update device tree to include new entires
 cd $SOURCEDIR/arch/arm64/boot/dts/
 sed -e '/tegra210-jetson-cv-camera-modules.dtsi/ s;^;//;' -i tegra210-jetson-cv-base-p2597-2180-a00.dts
 echo "#include \"tegra210-platforms/tegra210-daxc02.dtsi\"" >> tegra210-jetson-cv-base-p2597-2180-a00.dts
-echo "#include \"tegra210-platforms/tegra210-daxc03.dtsi\"" >> tegra210-jetson-cv-base-p2597-2180-a00.dts
 cd $SOURCEDIR/arch/arm64/boot/dts/tegra210-plugin-manager/
 sed -e '/tegra210-jetson-cv-camera-plugin-manager.dtsi/ s;^;//;' -i tegra210-jetson-cv-plugin-manager.dtsi
 
@@ -68,14 +66,9 @@ cd $SOURCEDIR/arch/arm64/boot/dts/
 sed -e '/CONFIG_ARCH_TEGRA_21x_SOC/ s;^;#;' -i Makefile
 sed -e '/^#.* tegra210-jetson-tx1-p2597-2180-a01-devkit.dtb/ s;^#*;;' -i Makefile
 
-# Link new board file for DAX-C03
-cd $SOURCEDIR/arch/arm64/mach-tegra/
-rm board-t210ref.c
-ln -s $GIT/dax-drivers/daxc03/board-t210ref.c
-
 # Link DAX-C02 driver
 cd $SOURCEDIR/drivers/media/i2c/
-ln -s $GIT/dax-drivers/daxc02/daxc02.c
+ln -s $GIT/daxc02/daxc02.c
 ```
 
 Insert the following at the top of ```$SOURCEDIR/drivers/media/i2c/Kconfig```
@@ -101,26 +94,11 @@ sudo apt install libncurses-dev
 make menuconfig
 ```
 
-Enable MCP251X for DAX-C03
-```
-[*] Networking support --->
-    <*> CAN bus subsystem support --->
-        CAN Device Drivers --->
-            <*> Microchip MCP251x SPI CAN controllers
-```
-
 Enable DAXC02
 ```bash
 Device Drivers --->
     <*> Multimedia support --->
         <*> DAXC02 camera sensor support
-```
-
-Enable SPI support
-```
-Device Drivers --->
-    [*] SPI support --->
-        <*> User mode SPI device driver support
 ```
 
 Apply this patch to avoid [error: r7 cannot be used in asm here](https://tls.mbed.org/kb/development/arm-thumb-error-r7-cannot-be-used-in-asm-here)
