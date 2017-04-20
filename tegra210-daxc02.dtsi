@@ -38,7 +38,7 @@ i2c6 = "/host1x/i2c@546c0000";
             compatible = "nova,daxc02";
 
             /* slave or master mode */
-            trigger_mode = "master";
+            trigger_mode = "slave";
 
             /* I2C device address */
             reg = <0x10>;
@@ -94,14 +94,14 @@ i2c6 = "/host1x/i2c@546c0000";
                 mclk_multiplier = "3.094";
                 pix_clk_hz = "74250000";
 
-                min_gain_val = "1";
-                max_gain_val = "255";
+                min_gain_val = "1.0";
+                max_gain_val = "255.0";
                 min_hdr_ratio = "";
                 max_hdr_ratio = "";
-                min_framerate = "1";
-                max_framerate = "60";
+                min_framerate = "30.0";
+                max_framerate = "60.0";
                 min_exp_time = "0";
-                max_exp_time = "255";
+                max_exp_time = "255.0";
                 embedded_metadata_height = "0";
             };
             ports {
