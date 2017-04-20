@@ -1,3 +1,24 @@
+/*
+ * daxc02.c
+ *
+ * Driver for Nova Dynamics DAX-C02 dual mipi camera board.
+ * Used to control Leopard Imaging LI-M021C-MIPI cameras.
+ *
+ * Copyright (c) 2017 Wilkins White <ww@novadynamics.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the version 2 of the GNU General Public License
+ * as published by the Free Software Foundation
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 //#define USE_RAW8
 #define DEBUG
 
