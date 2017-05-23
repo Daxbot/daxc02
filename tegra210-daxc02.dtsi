@@ -38,7 +38,7 @@ i2c6 = "/host1x/i2c@546c0000";
             compatible = "nova,daxc02";
 
             /* slave or master mode */
-            trigger_mode = "slave";
+            trigger_mode = "master";
 
             /* I2C device address */
             reg = <0x10>;
