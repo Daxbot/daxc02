@@ -33,6 +33,7 @@ i2c6 = "/host1x/i2c@546c0000";
         status = "okay";
         #address-cells = <1>;
         #size-cells = <0>;
+        clock-frequency = <100000>;
 
         daxc02_c@10 {
             compatible = "nova,daxc02";
@@ -64,6 +65,7 @@ i2c6 = "/host1x/i2c@546c0000";
             vana-supply = <&en_vdd_cam_hv_2v8>;     // analog 2.8v
             vif-supply = <&en_vdd_cam>;             // interface 1.8v
             vdig-supply = <&en_vdd_cam_1v2_alt>;    // digital 1.2v
+            reset-gpios = <&gpio TEGRA_GPIO(S, 5) GPIO_ACTIVE_LOW>;
 
             avdd-reg = "vana";
             iovdd-reg = "vif";
@@ -154,6 +156,7 @@ i2c6 = "/host1x/i2c@546c0000";
             status = "okay";
             #address-cells = <1>;
             #size-cells = <0>;
+            clock-frequency = <100000>;
 
             daxc02_a@10 {
                 compatible = "nova,daxc02";
@@ -185,6 +188,7 @@ i2c6 = "/host1x/i2c@546c0000";
                 vana-supply = <&en_vdd_cam_hv_2v8>;     // analog 2.8v
                 vif-supply = <&en_vdd_cam>;             // interface 1.8v
                 vdig-supply = <&en_vdd_cam_1v2_alt>;    // digital 1.2v
+                reset-gpios = <&gpio TEGRA_GPIO(S, 5) GPIO_ACTIVE_LOW>;
 
                 avdd-reg = "vana";
                 iovdd-reg = "vif";
