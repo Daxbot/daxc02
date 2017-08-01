@@ -33,7 +33,6 @@ i2c6 = "/host1x/i2c@546c0000";
         status = "okay";
         #address-cells = <1>;
         #size-cells = <0>;
-        clock-frequency = <100000>;
 
         daxc02_c@10 {
             compatible = "nova,daxc02";
@@ -156,7 +155,6 @@ i2c6 = "/host1x/i2c@546c0000";
             status = "okay";
             #address-cells = <1>;
             #size-cells = <0>;
-            clock-frequency = <100000>;
 
             daxc02_a@10 {
                 compatible = "nova,daxc02";
