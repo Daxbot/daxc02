@@ -41,6 +41,7 @@
 #include <stdbool.h>
 #include <linux/kernel.h>
 
+#include "cam_dev/camera_gpio.h"
 
 /***************************************************
         MT9M021 Image Sensor Registers
@@ -639,6 +640,17 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         DAX-C02 Power Functions
 ****************************************************/
 
+/** daxc02_gpio_set - Turns on or off gpio
+  * @priv: DAX-C02 private data struct.
+  * @gpio: Gpio to target.
+  * @val:  Value to set gpio.
+  */
+  static void daxc02_gpio_set(struct daxc02 *priv, unsigned int gpio, int val)
+  {
+    if (gpio_cansleep(gpio)) gpio_set_value_cansleep(gpio, val);
+    else gpio_set_value(gpio, val);
+  }
+
 /** daxc02_power_on - Turns on the needed TX1 voltage regulators.
   * @s_data: Nvidia camera common data struct.
   */
@@ -673,6 +685,8 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     if (pw->iovdd) err = regulator_enable(pw->iovdd);   // 1.8V
     if (err) goto daxc02_iovdd_fail;
 
+    msleep(30);
+    if(pw->reset_gpio) daxc02_gpio_set(priv, pw->reset_gpio, 1);
     msleep(200);
 
     pw->state = SWITCH_ON;
@@ -708,8 +722,8 @@ static int daxc02_power_off(struct camera_common_data *s_data)
         return err;
     }
 
-    usleep_range(2000, 2010);
-
+    if(pw->reset_gpio) daxc02_gpio_set(priv, pw->reset_gpio, 0);
+    usleep_range(50, 100);
     if (pw->iovdd) regulator_disable(pw->iovdd);
     usleep_range(50, 100);
     if (pw->avdd) regulator_disable(pw->avdd);
@@ -756,6 +770,12 @@ static int daxc02_power_get(struct daxc02 *priv)
     /* IO 1.8v */
     err |= camera_common_regulator_get(priv->i2c_client, &pw->iovdd, pdata->regulators.iovdd);
 
+    if (!err) 
+    {
+        pw->reset_gpio = pdata->reset_gpio;
+        gpio_request(pw->reset_gpio, "cam_reset_gpio");
+    }
+
     pw->state = SWITCH_OFF;
     return err;
 }
@@ -779,6 +799,8 @@ static int daxc02_power_put(struct daxc02 *priv)
     pw->avdd = NULL;
     pw->iovdd = NULL;
     pw->dvdd = NULL;
+
+    if(pw->reset_gpio) gpio_free(pw->reset_gpio);
 
     return 0;
 }
@@ -1551,7 +1573,7 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
     struct device_node *node = client->dev.of_node;
     struct camera_common_pdata *board_priv_pdata;
     const struct of_device_id *match;
-
+    int gpio;
     int err;
 
     dev_dbg(&client->dev, "%s\n", __func__);
@@ -1576,8 +1598,14 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
         goto error;
     }
 
-    board_priv_pdata->use_cam_gpio =
-        of_property_read_bool(node, "cam,use-cam-gpio");
+    gpio = of_get_named_gpio(node, "reset-gpios", 0);
+    if (gpio < 0)
+    {
+            /* reset-gpio is not absoluctly needed */
+            dev_dbg(&client->dev, "reset gpios not in DT\n");
+            gpio = 0;
+    }
+    board_priv_pdata->reset_gpio = (unsigned int)gpio;
 
     err = of_property_read_string(node, "avdd-reg", &board_priv_pdata->regulators.avdd);
     if (err)
@@ -1756,11 +1784,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     if (err) return err;
 
     daxc02_power_on(common_data);
-
-    /* soft reset */
-    err = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_RESET);
-    if(err < 0) return err;
-    msleep(200);
 
     data = mt9m021_read(client, MT9M021_CHIP_ID_REG);
     if (data != MT9M021_CHIP_ID)
