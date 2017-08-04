@@ -109,6 +109,7 @@
 
 #define MT9M021_PIXEL_ARRAY_WIDTH       1280
 #define MT9M021_PIXEL_ARRAY_HEIGHT      960
+#define MT9M021_LLP_RECOMMENDED         1650
 
 #define MT9M021_EXT_FREQ                24000000
 #define MT9M021_TARGET_FREQ             74250000
@@ -140,9 +141,9 @@
 #define MT9M021_ANALOG_GAIN_SHIFT       4
 #define MT9M021_ANALOG_GAIN_MASK        0x0030
 
-#define MT9M021_GLOBAL_GAIN_MIN         0x01
-#define MT9M021_GLOBAL_GAIN_MAX         0xFF
-#define MT9M021_GLOBAL_GAIN_DEF         0x10
+#define MT9M021_GLOBAL_GAIN_MIN         4
+#define MT9M021_GLOBAL_GAIN_MAX         6476
+#define MT9M021_GLOBAL_GAIN_DEF         100
 
 #define MT9M021_EXPOSURE_MIN            0x0001
 #define MT9M021_EXPOSURE_MAX            0x02A0
@@ -152,9 +153,6 @@
 #define MT9M021_FINE_INT_TIME_MAX       0xFFFF
 #define MT9M021_FINE_INT_TIME_DEF       0x0380
 
-#define MT9M021_LLP_MIN                 0x0672
-#define MT9M021_LLP_MAX                 0xFFFF
-#define MT9M021_LLP_DEF                 0x0672
 
 static uint16_t mt9m021_seq_data[] = {
     0x3227, 0x0101, 0x0F25, 0x0808, 0x0227, 0x0101, 0x0837, 0x2700,
@@ -302,6 +300,7 @@ static int mt9m021_rev2_settings(struct i2c_client *client);
 static int mt9m021_pll_setup(struct i2c_client *client, uint16_t m, uint8_t n, uint8_t p1, uint8_t p2);
 static int mt9m021_set_size(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
+static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain);
 static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode);
 static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
@@ -385,9 +384,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
         case V4L2_CID_GAIN:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN\n", __func__);
-            ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN, ctrl->val);
-            if(ret < 0) break;
-            ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, ctrl->val);
+            ret = mt9m021_set_gain(client, ctrl->val);
             break;
 
         case V4L2_CID_GAIN_GREEN1:
@@ -466,7 +463,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
         case V4L2_CID_FRAME_LENGTH:
             dev_dbg(&client->dev, "%s: V4L2_CID_FRAME_LENGTH\n", __func__);
-            ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, ctrl->val);
             break;
 
         default:
@@ -521,7 +518,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max            = MT9M021_GLOBAL_GAIN_MAX,
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = 0,
+        .flags          = V4L2_CTRL_FLAG_DISABLED,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -532,7 +529,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max            = MT9M021_GLOBAL_GAIN_MAX,
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = 0,
+        .flags          = V4L2_CTRL_FLAG_DISABLED,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -543,7 +540,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max            = MT9M021_GLOBAL_GAIN_MAX,
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = 0,
+        .flags          = V4L2_CTRL_FLAG_DISABLED,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -554,7 +551,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max            = MT9M021_GLOBAL_GAIN_MAX,
         .step           = 1,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = 0,
+        .flags          = V4L2_CTRL_FLAG_DISABLED,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -565,7 +562,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .max            = MT9M021_ANALOG_GAIN_MAX,
         .step           = 1,
         .def            = MT9M021_ANALOG_GAIN_DEF,
-        .flags          = 0,
+        .flags          = V4L2_CTRL_FLAG_DISABLED,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -628,9 +625,9 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .name           = "Frame Length",
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
-        .min            = MT9M021_LLP_MIN,
-        .max            = MT9M021_LLP_MAX,
-        .def            = MT9M021_LLP_DEF,
+        .min            = MT9M021_WINDOW_HEIGHT_MIN + 37,
+        .max            = MT9M021_WINDOW_HEIGHT_MAX + 37,
+        .def            = MT9M021_WINDOW_HEIGHT_DEF + 37,
         .step           = 1,
     },
 };
@@ -1091,8 +1088,8 @@ static int mt9m021_set_size(struct i2c_client *client)
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ADDR_END, 0x0500);
     if(ret < 0) return ret;
-    //ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_DEF);
-    //if(ret < 0) return ret;
+    ret = mt9m021_write(client, MT9M021_LINE_LENGTH_PCK, MT9M021_LLP_RECOMMENDED);
+    if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, MT9M021_EXPOSURE_DEF);
     if(ret < 0) return ret;
     ret = mt9m021_write(client, MT9M021_X_ODD_INC, 0x0001);
@@ -1113,6 +1110,64 @@ static int mt9m021_is_streaming(struct i2c_client *client)
     streaming = ( (streaming >> 2) & 0x0001);
 
     return (streaming != 0);
+}
+
+/** mt9m021_set_gain - sets the sensor column and digital gain.
+ * @client: pointer to the i2c client.
+ * @gain: gain to set [4-6376].
+ */
+static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
+{
+    int ret = 0;
+    uint16_t reg16;
+    uint8_t integer, fraction;
+
+    if(gain >= 800)
+    {
+        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
+        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((3 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
+        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
+        if(ret < 0) return ret;
+
+        //63
+        integer = (gain/800);
+        fraction = ((gain/8)%100)*32/100;
+    }
+    else if(gain >= 400)
+    {
+        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
+        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((2 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
+        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
+        if(ret < 0) return ret;
+
+        integer = (gain/400);
+        fraction = ((gain/4)%100)*32/100;
+    }
+    else if(gain >= 200)
+    {
+        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
+        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((1 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
+        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
+        if(ret < 0) return ret;
+
+        integer = (gain/200);
+        fraction = ((gain/2)%100)*32/100;
+    }
+    else
+    {
+        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
+        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((0 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
+        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
+        if(ret < 0) return ret;
+
+        integer = (gain/100);
+        fraction = ((gain)%100)*32/100;
+    }
+
+    ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer << 5) | fraction);
+    if(ret == 0) ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, (integer << 5) | fraction);
+
+    return ret;
 }
 
 /** mt9m021_set_flash - enables or disables flash.
