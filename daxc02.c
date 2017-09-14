@@ -145,8 +145,6 @@
 #define MT9M021_GLOBAL_GAIN_MAX         6476
 #define MT9M021_GLOBAL_GAIN_DEF         100
 
-#define MT9M021_COARSE_INT_TIME_MIN     0x0001
-#define MT9M021_COARSE_INT_TIME_MAX     0x02A0
 #define MT9M021_COARSE_INT_TIME_DEF     0x01C2
 
 static uint16_t mt9m021_seq_data[] = {
@@ -558,8 +556,8 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .name           = "Coarse Time",
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
-        .min            = MT9M021_COARSE_INT_TIME_MIN,
-        .max            = MT9M021_COARSE_INT_TIME_MAX,
+        .min            = 0x1,
+        .max            = 0xFFFF,
         .def            = MT9M021_COARSE_INT_TIME_DEF,
         .step           = 1,
     },
@@ -614,7 +612,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
         .min            = MT9M021_WINDOW_HEIGHT_MIN + 37,
-        .max            = MT9M021_WINDOW_HEIGHT_MAX + 37,
+        .max            = 0xFFFF,
         .def            = MT9M021_WINDOW_HEIGHT_DEF + 37,
         .step           = 1,
     },
@@ -755,7 +753,7 @@ static int daxc02_power_get(struct daxc02 *priv)
     /* IO 1.8v */
     err |= camera_common_regulator_get(priv->i2c_client, &pw->iovdd, pdata->regulators.iovdd);
 
-    if (!err) 
+    if (!err)
     {
         pw->reset_gpio = pdata->reset_gpio;
         gpio_request(pw->reset_gpio, "cam_reset_gpio");
@@ -997,10 +995,6 @@ static int mt9m021_rev2_settings(struct i2c_client *client)
     if (ret < 0) return ret;
 
     ret = mt9m021_write(client, 0x3180, 0x8000);
-    if (ret < 0) return ret;
-
-    //ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0380);
-    ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, 0x0);
     if (ret < 0) return ret;
 
     for(i = 0; i < ARRAY_SIZE(mt9m021_analog_setting); i++)
@@ -1283,7 +1277,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    if (!enable) 
+    if (!enable)
     {
         dev_info(&client->dev, "Ending stream\n");
         return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
@@ -1598,10 +1592,10 @@ static struct of_device_id daxc02_of_match[] = {
     }
 
     err = of_property_read_string(node, "trigger_mode", &priv->trigger_mode);
-    if(err == -EINVAL) 
+    if(err == -EINVAL)
     {
         dev_warn(&client->dev, "trigger_mode not in device tree\n");
-        *(&priv->trigger_mode) = "master"; 
+        *(&priv->trigger_mode) = "master";
     }
 
     return 0;
@@ -1816,7 +1810,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 
     err = daxc02_get_trigger_mode(priv);
     if (err) return err;
-    
+
     if(strstr(priv->trigger_mode, "slave") != NULL)
     {
         dev_info(&client->dev, "slave mode activated\n");
