@@ -901,8 +901,8 @@ static int daxc02_bridge_setup(struct i2c_client *client)
 
         ret = i2c_transfer(client->adapter, msg, 1);
 
-        if(settings.len == 2) dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, settings.data, settings.addr);
-        else dev_dbg(&client->dev, "%s: 0x%08x to 0x%04x\n", __func__, settings.data, settings.addr);
+        //if(settings.len == 2) dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, settings.data, settings.addr);
+        //else dev_dbg(&client->dev, "%s: 0x%08x to 0x%04x\n", __func__, settings.data, settings.addr);
 
         if (ret < 0)
         {
@@ -1282,8 +1282,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         dev_info(&client->dev, "Ending stream\n");
         return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
     }
-
-    dev_info(&client->dev, "Starting stream\n");
+    else dev_info(&client->dev, "Starting stream\n");
 
     ret = daxc02_bridge_setup(client);
     if (ret < 0)
