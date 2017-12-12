@@ -171,9 +171,10 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
     struct daxc02 *priv = container_of(ctrl->handler, struct daxc02, ctrl_handler);
     struct i2c_client *client = v4l2_get_subdevdata(priv->subdev);
 
-    if (priv->power.state == SWITCH_OFF) return 0;
+    if(priv->power.state == SWITCH_OFF) return 0;
 
-    switch (ctrl->id) {
+    switch (ctrl->id)
+    {
         case V4L2_CID_FLASH_LED_MODE:
             dev_dbg(&client->dev, "%s: V4L2_CID_FLASH_LED_MODE - %d\n", __func__, ctrl->val);
             ret = mt9m021_set_flash(client, (enum v4l2_flash_led_mode)ctrl->val);
@@ -226,11 +227,11 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
         case V4L2_CID_HFLIP:
             dev_dbg(&client->dev, "%s: V4L2_CID_HFLIP - %d\n", __func__, ctrl->val);
             reg16 = mt9m021_read(client, MT9M021_READ_MODE);
-            if (ctrl->val)
+            if(ctrl->val)
             {
                 reg16 |= 0x4000;
                 ret = mt9m021_write(client, MT9M021_READ_MODE, reg16);
-                if (ret < 0) return ret;
+                if(ret < 0) return ret;
                 break;
             }
             reg16 &= 0xbfff;
@@ -240,11 +241,11 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
         case V4L2_CID_VFLIP:
             dev_dbg(&client->dev, "%s: V4L2_CID_VFLIP - %d\n", __func__, ctrl->val);
             reg16 = mt9m021_read(client, MT9M021_READ_MODE);
-            if (ctrl->val)
+            if(ctrl->val)
             {
                 reg16 |= 0x8000;
                 ret = mt9m021_write(client, MT9M021_READ_MODE, reg16);
-                if (ret < 0) return ret;
+                if(ret < 0) return ret;
                 break;
             }
             reg16 &= 0x7fff;
@@ -253,7 +254,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
         case V4L2_CID_TEST_PATTERN:
             dev_dbg(&client->dev, "%s: V4L2_CID_TEST_PATTERN - %d\n", __func__, ctrl->val);
-            if (!ctrl->val)
+            if(!ctrl->val)
             {
                 ret = mt9m021_write(client, MT9M021_TEST_PATTERN, 0x0000);
                 if(ret < 0) return ret;
@@ -444,7 +445,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
   */
   static void daxc02_gpio_set(struct daxc02 *priv, unsigned int gpio, int val)
   {
-    if (gpio_cansleep(gpio)) gpio_set_value_cansleep(gpio, val);
+    if(gpio_cansleep(gpio)) gpio_set_value_cansleep(gpio, val);
     else gpio_set_value(gpio, val);
   }
 
@@ -453,34 +454,34 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
   */
 static int daxc02_power_on(struct camera_common_data *s_data)
 {
-    int err = 0;
+    int ret = 0;
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
     struct i2c_client *client = s_data->i2c_client;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    if (priv->pdata && priv->pdata->power_on)
+    if(priv->pdata && priv->pdata->power_on)
     {
-        err = priv->pdata->power_on(pw);
-        if (err) pr_err("%s failed.\n", __func__);
+        ret = priv->pdata->power_on(pw);
+        if(ret) pr_err("%s failed.\n", __func__);
         else pw->state = SWITCH_ON;
-        return err;
+        return ret;
     }
 
     /* sleeps calls in the sequence below are for internal device
      * signal propagation as specified by sensor vendor */
 
-    if (pw->dvdd) err = regulator_enable(pw->dvdd);     // 1.2V
-    if (err) goto daxc02_dvdd_fail;
+    if(pw->dvdd) ret = regulator_enable(pw->dvdd);     // 1.2V
+    if(ret) goto daxc02_dvdd_fail;
 
     usleep_range(50, 100);
-    if (pw->avdd) err = regulator_enable(pw->avdd);     // 2.8V
-    if (err) goto daxc02_avdd_fail;
+    if(pw->avdd) ret = regulator_enable(pw->avdd);     // 2.8V
+    if(ret) goto daxc02_avdd_fail;
 
     usleep_range(50, 100);
-    if (pw->iovdd) err = regulator_enable(pw->iovdd);   // 1.8V
-    if (err) goto daxc02_iovdd_fail;
+    if(pw->iovdd) ret = regulator_enable(pw->iovdd);   // 1.8V
+    if(ret) goto daxc02_iovdd_fail;
 
     msleep(30);
     if(pw->reset_gpio) daxc02_gpio_set(priv, pw->reset_gpio, 1);
@@ -505,27 +506,27 @@ static int daxc02_power_on(struct camera_common_data *s_data)
   */
 static int daxc02_power_off(struct camera_common_data *s_data)
 {
-    int err = 0;
+    int ret = 0;
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
 
     dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
 
-    if (priv->pdata && priv->pdata->power_on)
+    if(priv->pdata && priv->pdata->power_on)
     {
-        err = priv->pdata->power_off(pw);
-        if (!err) pw->state = SWITCH_OFF;
+        ret = priv->pdata->power_off(pw);
+        if(!ret) pw->state = SWITCH_OFF;
         else pr_err("%s failed.\n", __func__);
-        return err;
+        return ret;
     }
 
     if(pw->reset_gpio) daxc02_gpio_set(priv, pw->reset_gpio, 0);
     usleep_range(50, 100);
-    if (pw->iovdd) regulator_disable(pw->iovdd);
+    if(pw->iovdd) regulator_disable(pw->iovdd);
     usleep_range(50, 100);
-    if (pw->avdd) regulator_disable(pw->avdd);
+    if(pw->avdd) regulator_disable(pw->avdd);
     usleep_range(50, 100);
-    if (pw->dvdd) regulator_disable(pw->dvdd);
+    if(pw->dvdd) regulator_disable(pw->dvdd);
 
     return 0;
 }
@@ -540,41 +541,41 @@ static int daxc02_power_get(struct daxc02 *priv)
     const char *mclk_name;
     const char *parentclk_name;
     struct clk *parent;
-    int err = 0;
+    int ret = 0;
 
     dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
 
     mclk_name = priv->pdata->mclk_name ? priv->pdata->mclk_name : "cam_mclk1";
     pw->mclk = devm_clk_get(&priv->i2c_client->dev, mclk_name);
-    if (IS_ERR(pw->mclk))
+    if(IS_ERR(pw->mclk))
     {
         dev_err(&priv->i2c_client->dev, "unable to get clock %s\n", mclk_name);
         return PTR_ERR(pw->mclk);
     }
 
     parentclk_name = priv->pdata->parentclk_name;
-    if (parentclk_name)
+    if(parentclk_name)
     {
         parent = devm_clk_get(&priv->i2c_client->dev, parentclk_name);
-        if (IS_ERR(parent)) dev_err(&priv->i2c_client->dev, "unable to get parent clcok %s", parentclk_name);
+        if(IS_ERR(parent)) dev_err(&priv->i2c_client->dev, "unable to get parent clcok %s", parentclk_name);
         else clk_set_parent(pw->mclk, parent);
     }
 
     /* 1.2v */
-    err |= camera_common_regulator_get(priv->i2c_client, &pw->dvdd, pdata->regulators.dvdd);
+    ret |= camera_common_regulator_get(priv->i2c_client, &pw->dvdd, pdata->regulators.dvdd);
     /* analog 2.8v */
-    err |= camera_common_regulator_get(priv->i2c_client, &pw->avdd, pdata->regulators.avdd);
+    ret |= camera_common_regulator_get(priv->i2c_client, &pw->avdd, pdata->regulators.avdd);
     /* IO 1.8v */
-    err |= camera_common_regulator_get(priv->i2c_client, &pw->iovdd, pdata->regulators.iovdd);
+    ret |= camera_common_regulator_get(priv->i2c_client, &pw->iovdd, pdata->regulators.iovdd);
 
-    if (!err)
+    if(!ret)
     {
         pw->reset_gpio = pdata->reset_gpio;
         gpio_request(pw->reset_gpio, "cam_reset_gpio");
     }
 
     pw->state = SWITCH_OFF;
-    return err;
+    return ret;
 }
 
 /** daxc02_power_put - Frees the voltage regulators.
@@ -585,13 +586,13 @@ static int daxc02_power_put(struct daxc02 *priv)
     struct camera_common_power_rail *pw = &priv->power;
     dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
 
-    if (unlikely(!pw)) return -EFAULT;
+    if(unlikely(!pw)) return -EFAULT;
 
-    if (likely(pw->iovdd)) regulator_put(pw->iovdd);
+    if(likely(pw->iovdd)) regulator_put(pw->iovdd);
 
-    if (likely(pw->avdd)) regulator_put(pw->avdd);
+    if(likely(pw->avdd)) regulator_put(pw->avdd);
 
-    if (likely(pw->dvdd)) regulator_put(pw->dvdd);
+    if(likely(pw->dvdd)) regulator_put(pw->dvdd);
 
     pw->avdd = NULL;
     pw->iovdd = NULL;
@@ -633,7 +634,7 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
 
     ret = i2c_transfer(client->adapter, msg, 2);
 
-    if (ret < 0)
+    if(ret < 0)
     {
         dev_err(&client->dev, "read failed at 0x%04x error %d\n", addr, ret);
         return ret;
@@ -677,7 +678,7 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
 
     /* i2c_transfer returns message length, but function should return 0 */
     ret = i2c_transfer(client->adapter, &msg, 1);
-    if (ret == 1) return 0;
+    if(ret == 1) return 0;
 
     dev_err(&client->dev, "write failed at 0x%04x error %d\n", addr, ret);
     return ret;
@@ -746,7 +747,7 @@ static int daxc02_bridge_setup(struct i2c_client *client)
         else dev_dbg(&client->dev, "%s: 0x%08x to 0x%04x\n", __func__, settings.data, settings.addr);
         #endif
 
-        if (ret < 0)
+        if(ret < 0)
         {
             dev_err(&client->dev, "%s failed at 0x%04x error %d\n", __func__, settings.addr, ret);
             break;
@@ -886,39 +887,40 @@ static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposur
             break;
 
         case V4L2_EXPOSURE_MANUAL:
-            if (streaming)
+            if(streaming)
             {
                 ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
-                if (ret < 0) return ret;
+                if(ret < 0) return ret;
             }
 
             ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1802);
-            if (ret < 0) return ret;
+            if(ret < 0) return ret;
             ret = mt9m021_write(client, MT9M021_AE_CTRL, 0x0000);
-            if (ret < 0) return ret;
+            if(ret < 0) return ret;
 
-            if (streaming) {
+            if(streaming)
+            {
                 ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
-                if (ret < 0) return ret;
+                if(ret < 0) return ret;
             }
             break;
 
         case V4L2_EXPOSURE_SHUTTER_PRIORITY:
-            if (streaming)
+            if(streaming)
             {
                 ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
-                if (ret < 0) return ret;
+                if(ret < 0) return ret;
             }
 
             ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1982);
-            if (ret < 0) return ret;
+            if(ret < 0) return ret;
             ret = mt9m021_write(client, MT9M021_AE_CTRL, 0x0013);
-            if (ret < 0) return ret;
+            if(ret < 0) return ret;
 
-            if (streaming)
+            if(streaming)
             {
                 ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
-                if (ret < 0) return ret;
+                if(ret < 0) return ret;
             }
             break;
 
@@ -956,7 +958,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    if (!enable)
+    if(!enable)
     {
         dev_info(&client->dev, "Ending stream\n");
         return mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
@@ -964,7 +966,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     else dev_info(&client->dev, "Starting stream\n");
 
     ret = daxc02_bridge_setup(client);
-    if (ret < 0)
+    if(ret < 0)
     {
         dev_err(&client->dev, "%s: Failed to setup mipi bridge\n", __func__);
         return ret;
@@ -1177,24 +1179,24 @@ static struct of_device_id daxc02_of_match[] = {
  */
  static int daxc02_get_trigger_mode(struct daxc02 *priv)
  {
-    int err = 0;
+    int ret = 0;
     struct i2c_client *client = priv->i2c_client;
     struct device_node *node = client->dev.of_node;
     const struct of_device_id *match;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    if (!node) return -EFAULT;
+    if(!node) return -EFAULT;
 
     match = of_match_device(daxc02_of_match, &client->dev);
-    if (!match)
+    if(!match)
     {
         dev_err(&client->dev, "Failed to find matching dt id\n");
         return -EFAULT;
     }
 
-    err = of_property_read_string(node, "trigger_mode", &priv->trigger_mode);
-    if(err == -EINVAL)
+    ret = of_property_read_string(node, "trigger_mode", &priv->trigger_mode);
+    if(ret == -EINVAL)
     {
         dev_warn(&client->dev, "trigger_mode not in device tree\n");
         *(&priv->trigger_mode) = "master";
@@ -1212,14 +1214,14 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
     struct camera_common_pdata *board_priv_pdata;
     const struct of_device_id *match;
     int gpio;
-    int err;
+    int ret;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
-    if (!node) return NULL;
+    if(!node) return NULL;
 
     match = of_match_device(daxc02_of_match, &client->dev);
-    if (!match)
+    if(!match)
     {
         dev_err(&client->dev, "Failed to find matching dt id\n");
         return NULL;
@@ -1227,17 +1229,17 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 
     board_priv_pdata = devm_kzalloc(&client->dev,
                sizeof(*board_priv_pdata), GFP_KERNEL);
-    if (!board_priv_pdata) return NULL;
+    if(!board_priv_pdata) return NULL;
 
-    err = camera_common_parse_clocks(client, board_priv_pdata);
-    if (err)
+    ret = camera_common_parse_clocks(client, board_priv_pdata);
+    if(ret)
     {
         dev_err(&client->dev, "Failed to find clocks\n");
         goto error;
     }
 
     gpio = of_get_named_gpio(node, "reset-gpios", 0);
-    if (gpio < 0)
+    if(gpio < 0)
     {
             /* reset-gpio is not absoluctly needed */
             dev_dbg(&client->dev, "reset gpios not in DT\n");
@@ -1245,22 +1247,22 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
     }
     board_priv_pdata->reset_gpio = (unsigned int)gpio;
 
-    err = of_property_read_string(node, "avdd-reg", &board_priv_pdata->regulators.avdd);
-    if (err)
+    ret = of_property_read_string(node, "avdd-reg", &board_priv_pdata->regulators.avdd);
+    if(ret)
     {
         dev_err(&client->dev, "avdd-reg not in DT\n");
         goto error;
     }
 
-    err = of_property_read_string(node, "iovdd-reg", &board_priv_pdata->regulators.iovdd);
-    if (err)
+    ret = of_property_read_string(node, "iovdd-reg", &board_priv_pdata->regulators.iovdd);
+    if(ret)
     {
         dev_err(&client->dev, "iovdd-reg not in DT\n");
         goto error;
     }
 
-    err = of_property_read_string(node, "dvdd-reg", &board_priv_pdata->regulators.dvdd);
-    if (err)
+    ret = of_property_read_string(node, "dvdd-reg", &board_priv_pdata->regulators.dvdd);
+    if(ret)
     {
         dev_err(&client->dev, "dvdd-reg not in DT\n");
         goto error;
@@ -1283,7 +1285,7 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
     struct i2c_client *client = priv->i2c_client;
     struct v4l2_ctrl *ctrl;
     int numctrls;
-    int err;
+    int ret;
     int i;
 
     dev_dbg(&client->dev, "%s\n", __func__);
@@ -1292,38 +1294,38 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
     dev_dbg(&client->dev, "initializing %d controls\n", numctrls);
     v4l2_ctrl_handler_init(&priv->ctrl_handler, numctrls);
 
-    for (i = 0; i < numctrls; i++)
+    for(i = 0; i < numctrls; i++)
     {
         dev_dbg(&client->dev, "control %d: %s\n", i, ctrl_config_list[i].name);
         ctrl = v4l2_ctrl_new_custom(&priv->ctrl_handler, &ctrl_config_list[i], NULL);
-        if (ctrl == NULL)
+        if(ctrl == NULL)
         {
             dev_err(&client->dev, "Failed to init %s ctrl\n", ctrl_config_list[i].name);
             continue;
         }
 
-        if (ctrl_config_list[i].type == V4L2_CTRL_TYPE_STRING &&
-            (ctrl_config_list[i].flags & V4L2_CTRL_FLAG_READ_ONLY))
+        if(ctrl_config_list[i].type == V4L2_CTRL_TYPE_STRING &&
+          (ctrl_config_list[i].flags & V4L2_CTRL_FLAG_READ_ONLY))
         {
             ctrl->string = devm_kzalloc(&client->dev, ctrl_config_list[i].max + 1, GFP_KERNEL);
-            if (!ctrl->string) return -ENOMEM;
+            if(!ctrl->string) return -ENOMEM;
         }
         priv->ctrls[i] = ctrl;
     }
 
     priv->numctrls = numctrls;
     priv->subdev->ctrl_handler = &priv->ctrl_handler;
-    if (priv->ctrl_handler.error)
+    if(priv->ctrl_handler.error)
     {
         dev_err(&client->dev, "Error %d adding controls\n", priv->ctrl_handler.error);
-        err = priv->ctrl_handler.error;
+        ret = priv->ctrl_handler.error;
         goto error;
     }
 
-    err = v4l2_ctrl_handler_setup(&priv->ctrl_handler);
-    if (err)
+    ret = v4l2_ctrl_handler_setup(&priv->ctrl_handler);
+    if(ret)
     {
-        dev_err(&client->dev, "Error %d setting default controls\n", err);
+        dev_err(&client->dev, "Error %d setting default controls\n", ret);
         goto error;
     }
 
@@ -1331,7 +1333,7 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
 
     error:
         v4l2_ctrl_handler_free(&priv->ctrl_handler);
-        return err;
+        return ret;
 }
 
 /** daxc02_probe - Checks if the device is present and performs one time initialization.
@@ -1344,21 +1346,21 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     struct daxc02 *priv;
     char debugfs_name[10];
     uint16_t reg16;
-    int error;
+    int ret;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
     common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
-    if (!common_data) return -ENOMEM;
+    if(!common_data) return -ENOMEM;
 
     priv = devm_kzalloc(&client->dev,
                 sizeof(struct daxc02) + sizeof(struct v4l2_ctrl *) *
                 ARRAY_SIZE(ctrl_config_list),
                 GFP_KERNEL);
-    if (!priv) return -ENOMEM;
+    if(!priv) return -ENOMEM;
 
     priv->pdata = daxc02_parse_dt(client);
-    if (!priv->pdata)
+    if(!priv->pdata)
     {
         dev_err(&client->dev, "unable to get device tree platform data\n");
         return -EFAULT;
@@ -1395,41 +1397,41 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->format.field              = V4L2_FIELD_NONE;
     priv->format.colorspace         = V4L2_COLORSPACE_SRGB;
 
-    error = daxc02_get_trigger_mode(priv);
-    if (error) return error;
+    ret = daxc02_get_trigger_mode(priv);
+    if(ret) return ret;
 
     if(strstr(priv->trigger_mode, "slave") != NULL)
     {
         dev_info(&client->dev, "slave mode activated\n");
     }
 
-    error = daxc02_power_get(priv);
-    if (error) return error;
+    ret = daxc02_power_get(priv);
+    if(ret) return ret;
 
-    error = daxc02_power_on(common_data);
-    if (error) return error;
+    ret = daxc02_power_on(common_data);
+    if(ret) return ret;
 
     reg16 = mt9m021_read(client, MT9M021_CHIP_ID_REG);
-    if(error || reg16 != MT9M021_CHIP_ID)
+    if(ret || reg16 != MT9M021_CHIP_ID)
     {
         dev_err(&client->dev, "Aptina MT9M021 not detected.\n");
         return -ENODEV;
     }
     else dev_info(&client->dev, "Aptina MT9M021 detected!\n");
 
-    error = camera_common_parse_ports(client, common_data);
-    if (error)
+    ret = camera_common_parse_ports(client, common_data);
+    if(ret)
     {
         dev_err(&client->dev, "Failed to find port info\n");
-        return error;
+        return ret;
     }
     sprintf(debugfs_name, "daxc02_%c", common_data->csi_port + 'a');
     camera_common_create_debugfs(common_data, debugfs_name);
 
     v4l2_i2c_subdev_init(priv->subdev, client, &daxc02_subdev_ops);
 
-    error = daxc02_ctrls_init(priv);
-    if (error) return error;
+    ret = daxc02_ctrls_init(priv);
+    if(ret) return ret;
 
     priv->subdev->internal_ops = &mt9m021_subdev_internal_ops;
     priv->subdev->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -1440,16 +1442,16 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->pad.flags = MEDIA_PAD_FL_SOURCE;
     priv->subdev->entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
     priv->subdev->entity.ops = &daxc02_media_ops;
-    error = media_entity_init(&priv->subdev->entity, 1, &priv->pad, 0);
-    if (error < 0)
+    ret = media_entity_init(&priv->subdev->entity, 1, &priv->pad, 0);
+    if(ret < 0)
     {
         dev_err(&client->dev, "unable to init media entity\n");
-        return error;
+        return ret;
     }
     #endif
 
-    error = v4l2_async_register_subdev(priv->subdev);
-    if (error) return error;
+    ret = v4l2_async_register_subdev(priv->subdev);
+    if(ret) return ret;
 
     dev_info(&client->dev, "probe successful.\n");
     return 0;
