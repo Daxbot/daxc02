@@ -19,6 +19,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define DEBUG
+
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -191,36 +193,20 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             ret = mt9m021_write(client, MT9M021_COARSE_INT_TIME, ctrl->val);
             break;
 
+        case V4L2_CID_COARSE_TIME_SHORT:
+            dev_dbg(&client->dev, "%s: V4L2_CID_COARSE_TIME_SHORT - %d\n", __func__, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_FINE_INT_TIME, ctrl->val);
+            break;
+
         case V4L2_CID_GAIN:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN - %d\n", __func__, ctrl->val);
             ret = mt9m021_set_gain(client, ctrl->val);
             break;
 
-        case V4L2_CID_GAIN_GREEN1:
-            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN1 - %d\n", __func__, ctrl->val);
-            ret = mt9m021_write(client, MT9M021_GREEN1_GAIN, ctrl->val);
-            break;
-
-        case V4L2_CID_GAIN_RED:
-            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_RED - %d\n", __func__, ctrl->val);
-            ret = mt9m021_write(client, MT9M021_RED_GAIN, ctrl->val);
-            break;
-
-        case V4L2_CID_GAIN_BLUE:
-            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_BLUE - %d\n", __func__, ctrl->val);
-            ret = mt9m021_write(client, MT9M021_BLUE_GAIN, ctrl->val);
-            break;
-
-        case V4L2_CID_GAIN_GREEN2:
-            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN2 - %d\n", __func__, ctrl->val);
-            ret = mt9m021_write(client, MT9M021_GREEN2_GAIN, ctrl->val);
-            break;
-
         case V4L2_CID_ANALOG_GAIN:
             dev_dbg(&client->dev, "%s: V4L2_CID_ANALOG_GAIN - %d\n", __func__, ctrl->val);
             reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-            reg16 = ( reg16 & ~MT9M021_ANALOG_GAIN_MASK ) |
-                ( ( ctrl->val << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK );
+            reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((ctrl->val << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
             ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
             break;
 
@@ -312,50 +298,6 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_GAIN_GREEN1,
-        .type           = V4L2_CTRL_TYPE_INTEGER,
-        .name           = "Gain, Green (R)",
-        .min            = MT9M021_GLOBAL_GAIN_MIN,
-        .max            = MT9M021_GLOBAL_GAIN_MAX,
-        .step           = 1,
-        .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = V4L2_CTRL_FLAG_DISABLED,
-    },
-    {
-        .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_GAIN_RED,
-        .type           = V4L2_CTRL_TYPE_INTEGER,
-        .name           = "Gain, Red",
-        .min            = MT9M021_GLOBAL_GAIN_MIN,
-        .max            = MT9M021_GLOBAL_GAIN_MAX,
-        .step           = 1,
-        .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = V4L2_CTRL_FLAG_DISABLED,
-    },
-    {
-        .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_GAIN_BLUE,
-        .type           = V4L2_CTRL_TYPE_INTEGER,
-        .name           = "Gain, Blue",
-        .min            = MT9M021_GLOBAL_GAIN_MIN,
-        .max            = MT9M021_GLOBAL_GAIN_MAX,
-        .step           = 1,
-        .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = V4L2_CTRL_FLAG_DISABLED,
-    },
-    {
-        .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_GAIN_GREEN2,
-        .type           = V4L2_CTRL_TYPE_INTEGER,
-        .name           = "Gain, Green (B)",
-        .min            = MT9M021_GLOBAL_GAIN_MIN,
-        .max            = MT9M021_GLOBAL_GAIN_MAX,
-        .step           = 1,
-        .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .flags          = V4L2_CTRL_FLAG_DISABLED,
-    },
-    {
-        .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_ANALOG_GAIN,
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .name           = "Gain, Column",
@@ -374,6 +316,17 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .min            = 0x1,
         .max            = 0xFFFF,
         .def            = MT9M021_COARSE_INT_TIME_DEF,
+        .step           = 1,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_COARSE_TIME_SHORT,
+        .name           = "Coarse Time Short",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = V4L2_CTRL_FLAG_SLIDER,
+        .min            = 0x0,
+        .max            = 0xFFFF,
+        .def            = MT9M021_FINE_INT_TIME_DEF,
         .step           = 1,
     },
     {
@@ -640,10 +593,6 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr)
         return ret;
     }
 
-    #ifdef DEBUG
-    dev_dbg(&client->dev, "%s: 0x%02x%02x from 0x%04x\n", __func__, buf[0], buf[1], addr);
-    #endif
-
     return (buf[0] << 8) | buf[1];
 }
 
@@ -658,10 +607,6 @@ static inline int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16
     uint8_t buf[4];
     uint16_t __addr, __data;
     int ret;
-
-    #ifdef DEBUG
-    dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, data, addr);
-    #endif
 
     /* 16-bit addressable register */
     __addr = cpu_to_be16(addr);
@@ -742,11 +687,6 @@ static int daxc02_bridge_setup(struct i2c_client *client)
 
         ret = i2c_transfer(client->adapter, msg, 1);
 
-        #ifdef DEBUG
-        if(settings.len == 2) dev_dbg(&client->dev, "%s: 0x%04x to 0x%04x\n", __func__, settings.data, settings.addr);
-        else dev_dbg(&client->dev, "%s: 0x%08x to 0x%04x\n", __func__, settings.data, settings.addr);
-        #endif
-
         if(ret < 0)
         {
             dev_err(&client->dev, "%s failed at 0x%04x error %d\n", __func__, settings.addr, ret);
@@ -772,62 +712,18 @@ static int mt9m021_is_streaming(struct i2c_client *client)
     return (streaming != 0);
 }
 
-/** mt9m021_set_gain - sets the sensor column and digital gain.
+/** mt9m021_set_gain - sets the digital gain.
  * @client: pointer to the i2c client.
- * @gain: gain to set [4-6376].
+ * @gain: gain to set [4-797].
  */
 static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
 {
-    int ret = 0;
-    uint16_t reg16;
     uint8_t integer, fraction;
 
-    if(gain >= 800)
-    {
-        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((3 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
-        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
-        if(ret < 0) return ret;
+    integer = (gain/100);
+    fraction = ((gain)%100)*32/100;
 
-        //63
-        integer = (gain/800);
-        fraction = ((gain/8)%100)*32/100;
-    }
-    else if(gain >= 400)
-    {
-        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((2 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
-        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
-        if(ret < 0) return ret;
-
-        integer = (gain/400);
-        fraction = ((gain/4)%100)*32/100;
-    }
-    else if(gain >= 200)
-    {
-        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((1 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
-        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
-        if(ret < 0) return ret;
-
-        integer = (gain/200);
-        fraction = ((gain/2)%100)*32/100;
-    }
-    else
-    {
-        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-        reg16 = (reg16 & ~MT9M021_ANALOG_GAIN_MASK) | ((0 << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
-        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
-        if(ret < 0) return ret;
-
-        integer = (gain/100);
-        fraction = ((gain)%100)*32/100;
-    }
-
-    ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer << 5) | fraction);
-    if(ret == 0) ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN_CB, (integer << 5) | fraction);
-
-    return ret;
+    return mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer << 5) | fraction);
 }
 
 /** mt9m021_set_flash - enables or disables flash.

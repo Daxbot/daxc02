@@ -96,7 +96,7 @@ i2c6 = "/host1x/i2c@546c0000";
                 pix_clk_hz = "74250000";
 
                 min_gain_val = "4";
-                max_gain_val = "3200";
+                max_gain_val = "797";
                 min_hdr_ratio = "";
                 max_hdr_ratio = "";
                 min_framerate = "1";
@@ -218,7 +218,7 @@ i2c6 = "/host1x/i2c@546c0000";
                     pix_clk_hz = "74250000";
 
                     min_gain_val = "4";
-                    max_gain_val = "3200";
+                    max_gain_val = "797";
                     min_hdr_ratio = "";
                     max_hdr_ratio = "";
                     min_framerate = "1";
