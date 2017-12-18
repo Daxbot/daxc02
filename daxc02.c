@@ -54,35 +54,74 @@ struct daxc02_mipi_settings {
     uint32_t data;
 };
 
-struct daxc02_mipi_settings daxc02_mipi_output[] = {
-   {2, 0x0004, 0x0004},
-   {2, 0x0002, 0x0001}, // reset 1
-   {2, 0x0002, 0x0000}, // reset 0
-   {2, 0x0016, 0x50F9}, // set the input and feedback frequency division ratio
-   {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
-   {2, 0x0006, 0x0030}, // FIFO level 3
-   {2, 0x0008, 0x0020}, // data format RAW12
+const struct daxc02_mipi_settings daxc02_single_lane[] = {
+    {2, 0x0004, 0x0004}, // parallel port disable
+    {2, 0x0002, 0x0001}, // reset 1
+    {2, 0x0002, 0x0000}, // reset 0
+    {2, 0x0016, 0x50F9}, // set the input and feedback frequency division ratio
+    {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
 
-   {2, 0x0022, 0x0780}, // word count (bytes per line)
-   {4, 0x0210, 0x00002C00},
-   {4, 0x0214, 0x00000005},
-   {4, 0x0218, 0x00001E06},
-   {4, 0x021C, 0x00000004},
-   {4, 0x0220, 0x00000406},
-   {4, 0x0224, 0x00004988},
-   {4, 0x0228, 0x0000000C},
-   {4, 0x022C, 0x00000006},
-   {4, 0x0234, 0x0000001F}, // Voltage regulator enable for data 0-3 and clock lanes.
-   //{4, 0x0238, 0x00000001}, // Continuous clock mode. Maintains the clock lane output regardless of data lane operation
-   {4, 0x0238, 0x00000000}, // Discontinuous clock mode.
-   {4, 0x0518, 0x00000001}, // CSI start
+    {2, 0x0006, 0x0030}, // FIFO level 3
+    {2, 0x0008, 0x0020}, // data format RAW12
+    {2, 0x0022, 0x0780}, // word count (bytes per line)
 
-   {4, 0x0500, 0xA30080A1}, // 1 data lane
-   //{4, 0x0500, 0xA30080A3}, // 2 data lanes
-   //{4, 0x0500, 0xA30080A7}, // 4 data lanes
+    {4, 0x0140, 0x00000000}, // clock lane enable
+    {4, 0x0144, 0x00000000}, // data lane 0 enable
+    {4, 0x0148, 0x00000001}, // data lane 1 disable
+    {4, 0x014C, 0x00000001}, // data lane 2 disable
+    {4, 0x0150, 0x00000001}, // data lane 3 disable
 
-   {4, 0x0204, 0x00000001}, // TX PPI starts
-   {2, 0x0004, 0x0044},
+    {4, 0x0210, 0x00002C00}, // line intialization wait counter
+    {4, 0x0214, 0x00000005}, // timing generation counter
+    {4, 0x0218, 0x00001E06}, // clock header counter
+    {4, 0x021C, 0x00000004}, // clock trail counter
+    {4, 0x0220, 0x00000406}, // data header counter
+    {4, 0x0224, 0x00004988}, // wakeup counter
+    {4, 0x0228, 0x0000000C}, // clock post counter
+    {4, 0x022C, 0x00000006}, // data trail counter
+    {4, 0x0234, 0x00000003}, // voltage regulator enable for clock data 0
+    {4, 0x0238, 0x00000000}, // discontinuous clock mode.
+    {4, 0x0204, 0x00000001}, // TX PPI start
+
+    {4, 0x0518, 0x00000001}, // CSI start
+    {4, 0x0500, 0xA30080A1}, // 1 data lane
+
+    {2, 0x0004, 0x0044}, // increment I2C, parallel port enable, 1 csi lane
+};
+
+const struct daxc02_mipi_settings daxc02_double_lane[] = {
+    {2, 0x0004, 0x0004}, // parallel port disable
+    {2, 0x0002, 0x0001}, // reset 1
+    {2, 0x0002, 0x0000}, // reset 0
+    {2, 0x0016, 0x50C6}, // set the input and feedback frequency division ratio
+    {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
+
+    {2, 0x0006, 0x0030}, // FIFO level 3
+    {2, 0x0008, 0x0020}, // data format RAW12
+    {2, 0x0022, 0x0780}, // word count (bytes per line)
+
+    {4, 0x0140, 0x00000000}, // clock lane enable
+    {4, 0x0144, 0x00000000}, // data lane 0 enable
+    {4, 0x0148, 0x00000000}, // data lane 1 enable
+    {4, 0x014C, 0x00000001}, // data lane 2 disable
+    {4, 0x0150, 0x00000001}, // data lane 3 disable
+
+    {4, 0x0210, 0x00002C00}, // line initialization wait counter
+    {4, 0x0214, 0x00000005}, // timing generation counter
+    {4, 0x0218, 0x00001E05}, // clock header counter
+    {4, 0x021C, 0x00000002}, // clock trail counter
+    {4, 0x0220, 0x00000204}, // data header counter
+    {4, 0x0224, 0x00004988}, // wakeup counter
+    {4, 0x0228, 0x00000009}, // clock post counter
+    {4, 0x022C, 0x00000003}, // data trail counter
+    {4, 0x0234, 0x00000007}, // voltage regulator enable for clock and data lanes 0-1
+    {4, 0x0238, 0x00000000}, // discontinuous clock mode.
+    {4, 0x0204, 0x00000001}, // TX PPI start
+
+    {4, 0x0518, 0x00000001}, // CSI start
+    {4, 0x0500, 0xA30080A3}, // 2 data lanes
+
+    {2, 0x0004, 0x0045}, // increment I2C, parallel port enable, 2 csi lanes
 };
 
 
@@ -637,9 +676,9 @@ static int daxc02_bridge_setup(struct i2c_client *client)
     int ret;
     uint8_t i;
 
-    for(i = 0; i < ARRAY_SIZE(daxc02_mipi_output); i++)
+    for(i = 0; i < ARRAY_SIZE(daxc02_single_lane); i++)
     {
-        settings = daxc02_mipi_output[i];
+        settings = daxc02_single_lane[i];
 
         __addr = cpu_to_be16(settings.addr);
         __data = cpu_to_be32(settings.data);
