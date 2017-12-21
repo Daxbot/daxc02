@@ -731,12 +731,14 @@ static int mt9m021_is_streaming(struct i2c_client *client)
 static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
 {
     uint8_t integer, fraction;
-    uint16_t analog, reg16;
+    uint16_t analog_gain, reg16;
     int ret;
+
+    if(gain < 4 || gain > 6376) return -EINVAL;
 
     if(gain < 100)
     {
-        analog = 0;
+        analog_gain = 0;
         integer = 0;
         fraction = gain*32/100;
     }
@@ -746,33 +748,33 @@ static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
         reg16 &= (~MT9M021_ANALOG_GAIN_MASK);
         if(gain >= 800)
         {
-            analog = 8;
+            analog_gain = 8;
             reg16 |= ((3 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
         }
         else if(gain >= 400)
         {
-            analog = 4;
+            analog_gain = 4;
             reg16 |= ((2 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
         }
         else if(gain >= 200)
         {
-            analog = 2;
+            analog_gain = 2;
             reg16 |= ((1 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
         }
         else
         {
-            analog = 1;
+            analog_gain = 1;
             reg16 |= ((0 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
         }
 
-        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, analog);
+        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
         if(ret < 0) return ret;
 
-        integer = (gain/analog)/100;
-        fraction = ((gain/analog)%100)*32/100;
+        integer = (gain/analog_gain)/100;
+        fraction = ((gain/analog_gain)%100)*32/100;
     }
 
-    dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, analog, integer, fraction*100/32);
+    dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, analog_gain, integer, fraction*100/32);
 
     return mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer << 5) | fraction);
 }
