@@ -161,7 +161,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val)
 static int mt9m021_write_table(struct i2c_client *client, const struct reg_16 table[]);
 static int daxc02_bridge_setup(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
-static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain);
+static int mt9m021_set_gain(struct i2c_client *client, uint8_t gain);
 static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode);
 static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
@@ -726,57 +726,31 @@ static int mt9m021_is_streaming(struct i2c_client *client)
 
 /** mt9m021_set_gain - sets the digital gain.
  * @client: pointer to the i2c client.
- * @gain: gain to set [4-6376].
+ * @gain: gain to set [1-63].
  */
-static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
+static int mt9m021_set_gain(struct i2c_client *client, uint8_t gain)
 {
-    uint8_t integer, fraction;
-    uint16_t analog_gain, reg16;
     int ret;
+    uint16_t reg16, integer_gain, fractional_gain;
+    uint8_t analog_gain;
 
-    if(gain < 4 || gain > 6376) return -EINVAL;
+    if(gain < 1 || gain > 63) return -EINVAL;
 
-    if(gain < 100)
-    {
-        analog_gain = 0;
-        integer = 0;
-        fraction = gain*32/100;
-    }
-    else
-    {
-        reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-        reg16 &= (~MT9M021_ANALOG_GAIN_MASK);
-        if(gain >= 800)
-        {
-            analog_gain = 8;
-            reg16 |= ((3 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
-        }
-        else if(gain >= 400)
-        {
-            analog_gain = 4;
-            reg16 |= ((2 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
-        }
-        else if(gain >= 200)
-        {
-            analog_gain = 2;
-            reg16 |= ((1 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
-        }
-        else
-        {
-            analog_gain = 1;
-            reg16 |= ((0 << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
-        }
+    reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
+    reg16 &= (~MT9M021_ANALOG_GAIN_MASK);
 
-        ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
-        if(ret < 0) return ret;
+    analog_gain = min(gain >> 3, 3);
+    reg16 |= ((analog_gain << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
 
-        integer = (gain/analog_gain)/100;
-        fraction = ((gain/analog_gain)%100)*32/100;
-    }
+    ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
+    if(ret < 0) return ret;
 
-    dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, analog_gain, integer, fraction*100/32);
+    integer_gain = (gain/(1 << analog_gain));
+    fractional_gain = ((gain << 5)/(1 << analog_gain)) % (1<<5);
 
-    return mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer << 5) | fraction);
+    dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, (1 << analog_gain), integer_gain, fractional_gain/(1<<5));
+
+    return mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer_gain << 5) | fractional_gain);
 }
 
 /** mt9m021_set_flash - enables or disables flash.
