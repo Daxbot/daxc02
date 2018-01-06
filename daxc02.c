@@ -42,7 +42,7 @@
 
 #include "daxc02.h"
 #include "daxc02_mode_tbls.h"
-#include "cam_dev/camera_gpio.h"
+#include "../platform/tegra/camera/camera_gpio.h"
 
 /***************************************************
         TC358746AXBG MIPI Converter Defines
@@ -140,7 +140,6 @@ struct daxc02 {
     struct camera_common_data           *s_data;
     struct camera_common_pdata          *pdata;
 
-    struct v4l2_mbus_framefmt           format;
     enum v4l2_exposure_auto_type        autoexposure;
     const char*                         trigger_mode;
 
@@ -166,8 +165,8 @@ static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposur
 static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
 static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status);
-static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *fmt);
-static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format);
+static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format);
+static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format);
 static int daxc02_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static int daxc02_get_trigger_mode(struct daxc02 *priv);
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client);
@@ -510,7 +509,13 @@ static int daxc02_power_get(struct daxc02 *priv)
 
     dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
 
-    mclk_name = priv->pdata->mclk_name ? priv->pdata->mclk_name : "cam_mclk1";
+    if (!pdata)
+    {
+        dev_err(&priv->i2c_client->dev, "pdata missing\n");
+        return -EFAULT;
+	}
+
+    mclk_name = pdata->mclk_name ? pdata->mclk_name : "cam_mclk1";
     pw->mclk = devm_clk_get(&priv->i2c_client->dev, mclk_name);
     if(IS_ERR(pw->mclk))
     {
@@ -518,11 +523,11 @@ static int daxc02_power_get(struct daxc02 *priv)
         return PTR_ERR(pw->mclk);
     }
 
-    parentclk_name = priv->pdata->parentclk_name;
-    if(parentclk_name)
+    parentclk_name = pdata->parentclk_name;
+    if (parentclk_name)
     {
         parent = devm_clk_get(&priv->i2c_client->dev, parentclk_name);
-        if(IS_ERR(parent)) dev_err(&priv->i2c_client->dev, "unable to get parent clcok %s", parentclk_name);
+        if(IS_ERR(parent)) dev_err(&priv->i2c_client->dev, "unable to get parent clock %s", parentclk_name);
         else clk_set_parent(pw->mclk, parent);
     }
 
@@ -537,6 +542,10 @@ static int daxc02_power_get(struct daxc02 *priv)
     {
         pw->reset_gpio = pdata->reset_gpio;
         gpio_request(pw->reset_gpio, "cam_reset_gpio");
+
+        // TODO: Figure out why this always returns EBUSY
+        //err = gpio_request(pw->reset_gpio, "cam_reset_gpio");
+        //if(err < 0) dev_dbg(&priv->i2c_client->dev, "%s: can't request reset_gpio %d\n", __func__, err);
     }
 
     pw->state = SWITCH_OFF;
@@ -964,14 +973,8 @@ static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status)
  */
 static struct v4l2_subdev_video_ops daxc02_subdev_video_ops = {
     .s_stream               = mt9m021_s_stream,
-    .s_mbus_fmt             = camera_common_s_fmt,
-    .g_mbus_fmt             = camera_common_g_fmt,
-    .try_mbus_fmt           = camera_common_try_fmt,
-    .enum_mbus_fmt          = camera_common_enum_fmt,
     .g_mbus_config          = camera_common_g_mbus_config,
     .g_input_status         = daxc02_g_input_status,
-    .enum_framesizes        = camera_common_enum_framesizes,
-    .enum_frameintervals    = camera_common_enum_frameintervals,
 };
 
 
@@ -988,52 +991,26 @@ static struct v4l2_subdev_core_ops daxc02_subdev_core_ops = {
         V4L2 Subdev Pad Operations
 ****************************************************/
 
-/** mt9m021_get_format - Gets the sub-device format.
- * @sd:         pointer to the v4l2 sub-device.
- * @fh:         pointer to the v4l2 sub-device file handle.
- * @format:     where to store the format.
- */
-static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
+static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format)
 {
     return camera_common_g_fmt(sd, &format->format);
 }
 
-/** mt9m021_set_format - Sets the sub-device format.
- * @sd:         pointer to the v4l2 sub-device.
- * @fh:         pointer to the v4l2 sub-device file handle.
- * @format:     new format to set.
- */
-static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh, struct v4l2_subdev_format *format)
+static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format)
 {
-    struct i2c_client *client = v4l2_get_subdevdata(sd);
-    int ret = 0;
-
-    dev_dbg(&client->dev, "%s\n\twidth: %u\n\theight: %u\n\tcode: %u\n",
-            __func__,
-            format->format.width,
-            format->format.height,
-            format->format.code);
-
-    switch(format->which)
-    {
-        case V4L2_SUBDEV_FORMAT_TRY:
-            ret = camera_common_try_fmt(sd, &format->format);
-        case V4L2_SUBDEV_FORMAT_ACTIVE:
-            ret = camera_common_s_fmt(sd, &format->format);
-        default:
-            ret = 0;
-    }
-
-    return ret;
+    if (format->which == V4L2_SUBDEV_FORMAT_TRY) return camera_common_try_fmt(sd, &format->format);
+    else return camera_common_s_fmt(sd, &format->format);
 }
 
 /*
  * Registers the v4l2 sub-device pad operations.
  */
 static struct v4l2_subdev_pad_ops mt9m021_subdev_pad_ops = {
-    .enum_mbus_code         = camera_common_enum_mbus_code,
     .get_fmt                = mt9m021_get_format,
     .set_fmt                = mt9m021_set_format,
+    .enum_mbus_code         = camera_common_enum_mbus_code,
+    .enum_frame_size        = camera_common_enum_framesizes,
+    .enum_frame_interval     = camera_common_enum_frameintervals,
 };
 
 
@@ -1138,9 +1115,9 @@ static struct of_device_id daxc02_of_match[] = {
  */
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 {
-    struct device_node *node = client->dev.of_node;
-    struct camera_common_pdata *board_priv_pdata;
     const struct of_device_id *match;
+    struct device_node *node = client->dev.of_node;
+    struct camera_common_pdata *board_priv_pdata = NULL;
     int gpio;
     int ret;
 
@@ -1167,7 +1144,12 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
     }
 
     gpio = of_get_named_gpio(node, "reset-gpios", 0);
-    if(gpio < 0)
+    if(gpio == -EPROBE_DEFER)
+    {
+        board_priv_pdata = ERR_PTR(-EPROBE_DEFER);
+        goto error;
+    }
+    else if (gpio < 0)
     {
             /* reset-gpio is not absoluctly needed */
             dev_dbg(&client->dev, "reset gpios not in DT\n");
@@ -1202,7 +1184,7 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client)
 
     error:
         devm_kfree(&client->dev, board_priv_pdata);
-        return NULL;
+        return board_priv_pdata;
 }
 
 /** daxc02_ctrls_init - Registers and initializes controls with the v4l2 framework.
@@ -1235,8 +1217,8 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
         if(ctrl_config_list[i].type == V4L2_CTRL_TYPE_STRING &&
           (ctrl_config_list[i].flags & V4L2_CTRL_FLAG_READ_ONLY))
         {
-            ctrl->string = devm_kzalloc(&client->dev, ctrl_config_list[i].max + 1, GFP_KERNEL);
-            if(!ctrl->string) return -ENOMEM;
+            ctrl->p_new.p_char = devm_kzalloc(&client->dev, ctrl_config_list[i].max + 1, GFP_KERNEL);
+            if (!ctrl->p_new.p_char) return -ENOMEM;
         }
         priv->ctrls[i] = ctrl;
     }
@@ -1271,12 +1253,15 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     struct camera_common_data *common_data;
+    struct device_node *node = client->dev.of_node;
     struct daxc02 *priv;
     char debugfs_name[10];
     uint16_t reg16;
     int ret;
 
     dev_dbg(&client->dev, "%s\n", __func__);
+
+    if(!IS_ENABLED(CONFIG_OF) || !node) return -EINVAL;
 
     common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
     if(!common_data) return -ENOMEM;
@@ -1288,7 +1273,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     if(!priv) return -ENOMEM;
 
     priv->pdata = daxc02_parse_dt(client);
-    if(!priv->pdata)
+    if(PTR_ERR(priv->pdata) == -EPROBE_DEFER) return -EPROBE_DEFER;
+    else if (!priv->pdata)
     {
         dev_err(&client->dev, "unable to get device tree platform data\n");
         return -EFAULT;
@@ -1298,19 +1284,16 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     common_data->ctrl_handler       = &priv->ctrl_handler;
     common_data->i2c_client         = client;
     common_data->frmfmt             = daxc02_frmfmt;
-    common_data->colorfmt           = camera_common_find_datafmt(V4L2_MBUS_FMT_SRGGB12_1X12);
+    common_data->colorfmt           = camera_common_find_datafmt(MEDIA_BUS_FMT_SRGGB12_1X12);
     common_data->power              = &priv->power;
     common_data->ctrls              = priv->ctrls;
     common_data->priv               = (void *)priv;
     common_data->numctrls           = ARRAY_SIZE(ctrl_config_list);
-    common_data->numfmts            = ARRAY_SIZE(daxc02_frmfmt);
     common_data->def_mode           = MT9M021_MODE_1280X720;
-    common_data->def_width          = MT9M021_WINDOW_WIDTH_DEF;
-    common_data->def_height         = MT9M021_WINDOW_HEIGHT_DEF;
-    common_data->def_maxfps         = 60;
+    common_data->def_width          = MT9M021_PIXEL_ARRAY_WIDTH;
+    common_data->def_height         = MT9M021_PIXEL_ARRAY_HEIGHT;
     common_data->fmt_width          = common_data->def_width;
     common_data->fmt_height         = common_data->def_height;
-    common_data->fmt_maxfps         = common_data->def_maxfps;
     common_data->def_clk_freq       = MT9M021_TARGET_FREQ;
 
     priv->i2c_client                = client;
@@ -1318,12 +1301,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->subdev                    = &common_data->subdev;
     priv->subdev->dev               = &client->dev;
     priv->s_data->dev               = &client->dev;
-
-    priv->format.code               = V4L2_MBUS_FMT_SRGGB12_1X12;
-    priv->format.width              = MT9M021_WINDOW_WIDTH_DEF;
-    priv->format.height             = MT9M021_WINDOW_HEIGHT_DEF;
-    priv->format.field              = V4L2_FIELD_NONE;
-    priv->format.colorspace         = V4L2_COLORSPACE_SRGB;
 
     ret = daxc02_get_trigger_mode(priv);
     if(ret) return ret;
@@ -1365,7 +1342,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->subdev->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
     priv->subdev->flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
 
-    #if defined(CONFIG_MEDIA_CONTROLLER)
+    #ifdef CONFIG_MEDIA_CONTROLLER
     dev_dbg(&client->dev, "initializing media entity.\n");
     priv->pad.flags = MEDIA_PAD_FL_SOURCE;
     priv->subdev->entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
@@ -1438,4 +1415,3 @@ MODULE_DEVICE_TABLE(i2c, daxc02_id);
 MODULE_DESCRIPTION("Nova Dynamics DAX-C02 MIPI camera driver");
 MODULE_AUTHOR("Wilkins White <ww@novadynamics.com>");
 MODULE_LICENSE("GPL v2");
-
