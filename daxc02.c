@@ -160,7 +160,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val)
 static int mt9m021_write_table(struct i2c_client *client, const struct reg_16 table[]);
 static int daxc02_bridge_setup(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
-static int mt9m021_set_gain(struct i2c_client *client, uint8_t gain);
+static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain);
 static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode);
 static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
@@ -303,7 +303,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .min            = MT9M021_GLOBAL_GAIN_MIN,
         .max            = MT9M021_GLOBAL_GAIN_MAX,
         .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .step           = 1,
+        .step           = MT9M021_GLOBAL_GAIN_STEP,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -735,27 +735,28 @@ static int mt9m021_is_streaming(struct i2c_client *client)
 
 /** mt9m021_set_gain - sets the digital gain.
  * @client: pointer to the i2c client.
- * @gain: gain to set [1-63].
+ * @gain: gain to set [100-6375].
  */
-static int mt9m021_set_gain(struct i2c_client *client, uint8_t gain)
+static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
 {
     int ret;
     uint16_t reg16, integer_gain, fractional_gain;
     uint8_t analog_gain;
 
-    if(gain < 1 || gain > 63) return -EINVAL;
+    if(gain < MT9M021_GLOBAL_GAIN_MIN || gain > MT9M021_GLOBAL_GAIN_MAX)
+        return -EINVAL;
 
     reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
     reg16 &= (~MT9M021_ANALOG_GAIN_MASK);
 
-    analog_gain = min(gain >> 3, 3);
+    analog_gain = min((gain/100) >> 3, 3);
     reg16 |= ((analog_gain << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
 
     ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
     if(ret < 0) return ret;
 
-    integer_gain = (gain/(1 << analog_gain));
-    fractional_gain = ((gain << 5)/(1 << analog_gain)) % (1<<5);
+    integer_gain = (gain/(1 << analog_gain)/100);
+    fractional_gain = ((gain << 5)/(1 << analog_gain)/100) % (1<<5);
 
     dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, (1 << analog_gain), integer_gain, fractional_gain/(1<<5));
 
