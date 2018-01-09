@@ -160,7 +160,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val)
 static int mt9m021_write_table(struct i2c_client *client, const struct reg_16 table[]);
 static int daxc02_bridge_setup(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
-static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain);
+static int mt9m021_calculate_gain(struct i2c_client *client, uint8_t value);
 static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode);
 static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
@@ -229,7 +229,7 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
         case V4L2_CID_GAIN:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN - %d\n", __func__, ctrl->val);
-            ret = mt9m021_set_gain(client, ctrl->val);
+            ret = mt9m021_calculate_gain(client, ctrl->val);
             break;
 
         case V4L2_CID_HFLIP:
@@ -300,10 +300,10 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .name           = "Gain",
         .type           = V4L2_CTRL_TYPE_INTEGER,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
-        .min            = MT9M021_GLOBAL_GAIN_MIN,
-        .max            = MT9M021_GLOBAL_GAIN_MAX,
-        .def            = MT9M021_GLOBAL_GAIN_DEF,
-        .step           = MT9M021_GLOBAL_GAIN_STEP,
+        .min            = MT9M021_DIGITAL_GAIN_MIN,
+        .max            = MT9M021_DIGITAL_GAIN_MAX,
+        .def            = MT9M021_DIGITAL_GAIN_DEF,
+        .step           = 1,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -733,34 +733,23 @@ static int mt9m021_is_streaming(struct i2c_client *client)
     return (streaming != 0);
 }
 
-/** mt9m021_set_gain - sets the digital gain.
+/** mt9m021_calculate_gain - sets the digital gain.
  * @client: pointer to the i2c client.
- * @gain: gain to set [100-6375].
+ * @value: gain to set [1-224].
  */
-static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
+static int mt9m021_calculate_gain(struct i2c_client *client, uint8_t value)
 {
-    int ret;
-    uint16_t reg16, integer_gain, fractional_gain;
-    uint8_t analog_gain;
+    uint16_t integer_gain, fractional_gain;
 
-    if(gain < MT9M021_GLOBAL_GAIN_MIN || gain > MT9M021_GLOBAL_GAIN_MAX)
+    if(value < MT9M021_DIGITAL_GAIN_MIN || value > MT9M021_DIGITAL_GAIN_MAX)
         return -EINVAL;
 
-    reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-    reg16 &= (~MT9M021_ANALOG_GAIN_MASK);
+    integer_gain = ((value-1) >> 5) + 1;
+    fractional_gain = (value-1) % (1<<5);
 
-    analog_gain = min((gain/10) >> 3, 3);
-    reg16 |= ((analog_gain << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
+    dev_dbg(&client->dev, "%s: %u.%02u", __func__, integer_gain, fractional_gain/(1<<5));
 
-    ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
-    if(ret < 0) return ret;
-
-    integer_gain = (gain/(1 << analog_gain)/10);
-    fractional_gain = ((gain << 5)/(1 << analog_gain)/10) % (1<<5);
-
-    dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, (1 << analog_gain), integer_gain, fractional_gain/(1<<5));
-
-    return mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer_gain << 5) | fractional_gain);
+    return mt9m021_write(client, MT9M021_DIGITAL_GAIN, (integer_gain << 5) | fractional_gain);
 }
 
 /** mt9m021_set_flash - enables or disables flash.
@@ -924,7 +913,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
      * overrides are non-fatal */
     control.id = V4L2_CID_GAIN;
     ret = v4l2_g_ctrl(&priv->ctrl_handler, &control);
-    ret |= mt9m021_set_gain(client, control.value);
+    ret |= mt9m021_calculate_gain(client, control.value);
     if(ret < 0) dev_dbg(&client->dev, "%s: warning gain override failed\n", __func__);
 
     control.id = V4L2_CID_FRAME_LENGTH;
