@@ -85,8 +85,8 @@ i2c8 = "/i2c@31e0000";
                 mclk_multiplier = "3.094";
                 pix_clk_hz = "74250000";
 
-                min_gain_val = "100";
-                max_gain_val = "6375";
+                min_gain_val = "10";
+                max_gain_val = "635";
                 min_hdr_ratio = "";
                 max_hdr_ratio = "";
                 min_framerate = "1";
@@ -169,8 +169,8 @@ i2c8 = "/i2c@31e0000";
                 mclk_multiplier = "3.094";
                 pix_clk_hz = "74250000";
 
-                min_gain_val = "100";
-                max_gain_val = "6375";
+                min_gain_val = "10";
+                max_gain_val = "635";
                 min_hdr_ratio = "";
                 max_hdr_ratio = "";
                 min_framerate = "1";

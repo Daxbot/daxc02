@@ -749,14 +749,14 @@ static int mt9m021_set_gain(struct i2c_client *client, uint16_t gain)
     reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
     reg16 &= (~MT9M021_ANALOG_GAIN_MASK);
 
-    analog_gain = min((gain/100) >> 3, 3);
+    analog_gain = min((gain/10) >> 3, 3);
     reg16 |= ((analog_gain << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
 
     ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
     if(ret < 0) return ret;
 
-    integer_gain = (gain/(1 << analog_gain)/100);
-    fractional_gain = ((gain << 5)/(1 << analog_gain)/100) % (1<<5);
+    integer_gain = (gain/(1 << analog_gain)/10);
+    fractional_gain = ((gain << 5)/(1 << analog_gain)/10) % (1<<5);
 
     dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, (1 << analog_gain), integer_gain, fractional_gain/(1<<5));
 

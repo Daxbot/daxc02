@@ -87,8 +87,13 @@ i2c6 = "/host1x/i2c@546c0000";
                 mclk_multiplier = "3.094";
                 pix_clk_hz = "74250000";
 
+<<<<<<< Updated upstream
                 min_gain_val = "100";
                 max_gain_val = "6375";
+=======
+                min_gain_val = "10";
+                max_gain_val = "635";
+>>>>>>> Stashed changes
                 min_hdr_ratio = "";
                 max_hdr_ratio = "";
                 min_framerate = "1";
@@ -249,8 +254,8 @@ i2c6 = "/host1x/i2c@546c0000";
                     mclk_multiplier = "3.094";
                     pix_clk_hz = "74250000";
 
-                    min_gain_val = "100";
-                    max_gain_val = "6375";
+                    min_gain_val = "10";
+                    max_gain_val = "635";
                     min_hdr_ratio = "";
                     max_hdr_ratio = "";
                     min_framerate = "1";
