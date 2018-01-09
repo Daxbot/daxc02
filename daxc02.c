@@ -161,7 +161,7 @@ static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val)
 static int mt9m021_write_table(struct i2c_client *client, const struct reg_16 table[]);
 static int daxc02_bridge_setup(struct i2c_client *client);
 static int mt9m021_is_streaming(struct i2c_client *client);
-static int mt9m021_set_gain(struct i2c_client *client, uint8_t gain);
+static uint8_t mt9m021_calculate_gain(struct i2c_client *client, uint8_t value);
 static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode);
 static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
@@ -179,6 +179,15 @@ static int daxc02_remove(struct i2c_client *client);
 /***************************************************
         V4L2 Control Configuration
 ****************************************************/
+
+/*
+ * Non-standard control definitions.
+ */
+#define V4L2_CID_GAIN_RED           (V4L2_CID_USER_BASE | 0x1001)
+#define V4L2_CID_GAIN_GREEN1        (V4L2_CID_USER_BASE | 0x1002)
+#define V4L2_CID_GAIN_GREEN2        (V4L2_CID_USER_BASE | 0x1003)
+#define V4L2_CID_GAIN_BLUE          (V4L2_CID_USER_BASE | 0x1004)
+#define V4L2_CID_ANALOG_GAIN        (V4L2_CID_USER_BASE | 0x1005)
 
 /*
  * Extra test pattern information to display to the user.
@@ -230,7 +239,40 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
         case V4L2_CID_GAIN:
             dev_dbg(&client->dev, "%s: V4L2_CID_GAIN - %d\n", __func__, ctrl->val);
-            ret = mt9m021_set_gain(client, ctrl->val);
+            reg16 = mt9m021_calculate_gain(client, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_GLOBAL_GAIN, reg16);
+            break;
+
+        case V4L2_CID_GAIN_GREEN1:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN1 - %d\n", __func__, ctrl->val);
+            reg16 = mt9m021_calculate_gain(client, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_GREEN1_GAIN, reg16);
+            break;
+
+        case V4L2_CID_GAIN_RED:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_RED - %d\n", __func__, ctrl->val);
+            reg16 = mt9m021_calculate_gain(client, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_RED_GAIN, reg16);
+            break;
+
+        case V4L2_CID_GAIN_BLUE:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_BLUE - %d\n", __func__, ctrl->val);
+            reg16 = mt9m021_calculate_gain(client, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_BLUE_GAIN, reg16);
+            break;
+
+        case V4L2_CID_GAIN_GREEN2:
+            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN_GREEN2 - %d\n", __func__, ctrl->val);
+            reg16 = mt9m021_calculate_gain(client, ctrl->val);
+            ret = mt9m021_write(client, MT9M021_GREEN2_GAIN, reg16);
+            break;
+
+        case V4L2_CID_ANALOG_GAIN:
+            dev_dbg(&client->dev, "%s: V4L2_CID_ANALOG_GAIN - %d\n", __func__, ctrl->val);
+            reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
+            reg16 &= ~MT9M021_ANALOG_GAIN_MASK;
+            reg16 |= ((ctrl->val << MT9M021_ANALOG_GAIN_SHIFT) & MT9M021_ANALOG_GAIN_MASK);
+            ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
             break;
 
         case V4L2_CID_HFLIP:
@@ -297,6 +339,19 @@ static const struct v4l2_ctrl_ops daxc02_ctrl_ops = {
 static struct v4l2_ctrl_config ctrl_config_list[] = {
     {
         .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_TEST_PATTERN,
+        .type           = V4L2_CTRL_TYPE_MENU,
+        .name           = "Test Pattern",
+        .min            = 0,
+        .max            = ARRAY_SIZE(mt9m021_test_pattern_menu) - 1,
+        .step           = 0,
+        .def            = 0,
+        .flags          = 0,
+        .menu_skip_mask = 0,
+        .qmenu          = mt9m021_test_pattern_menu,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_GAIN,
         .name           = "Gain",
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -308,16 +363,53 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_TEST_PATTERN,
-        .type           = V4L2_CTRL_TYPE_MENU,
-        .name           = "Test Pattern",
-        .min            = 0,
-        .max            = ARRAY_SIZE(mt9m021_test_pattern_menu) - 1,
-        .step           = 0,
-        .def            = 0,
-        .flags          = 0,
-        .menu_skip_mask = 0,
-        .qmenu          = mt9m021_test_pattern_menu,
+        .id             = V4L2_CID_GAIN_GREEN1,
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .name           = "Gain, Green (R)",
+        .min            = MT9M021_GLOBAL_GAIN_MIN,
+        .max            = MT9M021_GLOBAL_GAIN_MAX,
+        .def            = MT9M021_GLOBAL_GAIN_DEF,
+        .step           = 1,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_GAIN_RED,
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .name           = "Gain, Red",
+        .min            = MT9M021_GLOBAL_GAIN_MIN,
+        .max            = MT9M021_GLOBAL_GAIN_MAX,
+        .def            = MT9M021_GLOBAL_GAIN_DEF,
+        .step           = 1,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_GAIN_BLUE,
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .name           = "Gain, Blue",
+        .min            = MT9M021_GLOBAL_GAIN_MIN,
+        .max            = MT9M021_GLOBAL_GAIN_MAX,
+        .def            = MT9M021_GLOBAL_GAIN_DEF,
+        .step           = 1,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_GAIN_GREEN2,
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .name           = "Gain, Green (B)",
+        .min            = MT9M021_GLOBAL_GAIN_MIN,
+        .max            = MT9M021_GLOBAL_GAIN_MAX,
+        .def            = MT9M021_GLOBAL_GAIN_DEF,
+        .step           = 1,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_ANALOG_GAIN,
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .name           = "Gain, Column",
+        .min            = MT9M021_ANALOG_GAIN_MIN,
+        .max            = MT9M021_ANALOG_GAIN_MAX,
+        .def            = MT9M021_ANALOG_GAIN_DEF,
+        .step           = 1,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -724,33 +816,23 @@ static int mt9m021_is_streaming(struct i2c_client *client)
     return (streaming != 0);
 }
 
-/** mt9m021_set_gain - sets the digital gain.
+/** mt9m021_calculate_gain - sets the digital gain.
  * @client: pointer to the i2c client.
- * @gain: gain to set [1-63].
+ * @value: gain to set [1-224].
  */
-static int mt9m021_set_gain(struct i2c_client *client, uint8_t gain)
+static uint8_t mt9m021_calculate_gain(struct i2c_client *client, uint8_t value)
 {
-    int ret;
-    uint16_t reg16, integer_gain, fractional_gain;
-    uint8_t analog_gain;
+    uint16_t integer_gain, fractional_gain;
 
-    if(gain < 1 || gain > 63) return -EINVAL;
+    if(value < MT9M021_GLOBAL_GAIN_MIN || value > MT9M021_GLOBAL_GAIN_MAX)
+        return -EINVAL;
 
-    reg16 = mt9m021_read(client, MT9M021_DIGITAL_TEST);
-    reg16 &= (~MT9M021_ANALOG_GAIN_MASK);
+    integer_gain = ((value-1) >> 5) + 1;
+    fractional_gain = (value-1) % (1<<5);
 
-    analog_gain = min(gain >> 3, 3);
-    reg16 |= ((analog_gain << MT9M021_ANALOG_GAIN_SHIFT ) & MT9M021_ANALOG_GAIN_MASK);
+    dev_dbg(&client->dev, "%s: %u + %u/32", __func__, integer_gain, fractional_gain);
 
-    ret = mt9m021_write(client, MT9M021_DIGITAL_TEST, reg16);
-    if(ret < 0) return ret;
-
-    integer_gain = (gain/(1 << analog_gain));
-    fractional_gain = ((gain << 5)/(1 << analog_gain)) % (1<<5);
-
-    dev_dbg(&client->dev, "%s: %u * %u.%02u", __func__, (1 << analog_gain), integer_gain, fractional_gain/(1<<5));
-
-    return mt9m021_write(client, MT9M021_GLOBAL_GAIN, (integer_gain << 5) | fractional_gain);
+    return (integer_gain << 5) | fractional_gain;
 }
 
 /** mt9m021_set_flash - enables or disables flash.
@@ -914,7 +996,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
      * overrides are non-fatal */
     control.id = V4L2_CID_GAIN;
     ret = v4l2_g_ctrl(&priv->ctrl_handler, &control);
-    ret |= mt9m021_set_gain(client, control.value);
+    ret |= mt9m021_write(client, MT9M021_GLOBAL_GAIN, mt9m021_calculate_gain(client, control.value));
     if(ret < 0) dev_dbg(&client->dev, "%s: warning gain override failed\n", __func__);
 
     control.id = V4L2_CID_FRAME_LENGTH;
