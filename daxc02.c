@@ -180,6 +180,15 @@ static int daxc02_remove(struct i2c_client *client);
 ****************************************************/
 
 /*
+ * Non-standard control definitions.
+ */
+#define V4L2_CID_GAIN_RED           (V4L2_CID_USER_BASE | 0x1001)
+#define V4L2_CID_GAIN_GREEN1        (V4L2_CID_USER_BASE | 0x1002)
+#define V4L2_CID_GAIN_GREEN2        (V4L2_CID_USER_BASE | 0x1003)
+#define V4L2_CID_GAIN_BLUE          (V4L2_CID_USER_BASE | 0x1004)
+#define V4L2_CID_ANALOG_GAIN        (V4L2_CID_USER_BASE | 0x1005)
+
+/*
  * Extra test pattern information to display to the user.
  */
 static const char * const mt9m021_test_pattern_menu[] = {
