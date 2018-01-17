@@ -152,6 +152,7 @@ struct daxc02 {
 ****************************************************/
 
 static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl);
+static int daxc02_s_control(struct v4l2_ctrl_handler *handler, struct v4l2_control *control);
 static int daxc02_power_on(struct camera_common_data *s_data);
 static int daxc02_power_off(struct camera_common_data *s_data);
 static int daxc02_power_put(struct daxc02 *priv);
@@ -324,6 +325,22 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
     }
 
     return ret;
+}
+
+/** daxc02_s_control - Helper function to easily set a control.
+  * @handler:  v4l2 control handler.
+  * @control:  struct containing the control id to switch off of and
+  *            value to set from the v4l2 framework.
+  */
+static int daxc02_s_control(struct v4l2_ctrl_handler *handler, struct v4l2_control *control)
+{
+    struct v4l2_ctrl ctrl;
+    memset(&ctrl, 0, sizeof(ctrl));
+
+    ctrl.id = control->id;
+    ctrl.val = control->value;
+    ctrl.handler = handler;
+    return daxc02_s_ctrl(&ctrl);
 }
 
 /*
@@ -959,7 +976,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     struct camera_common_data *common_data = to_camera_common_data(client);
     struct daxc02 *priv = (struct daxc02 *)common_data->priv;
     struct v4l2_control control;
-    int ret;
+    int i, ret;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
@@ -991,28 +1008,13 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
         return ret;
     }
 
-    /* write list of override regs for the asking frame length,
-     * coarse integration time, and gain. Failures to write
-     * overrides are non-fatal */
-    control.id = V4L2_CID_GAIN;
-    ret = v4l2_g_ctrl(&priv->ctrl_handler, &control);
-    ret |= mt9m021_write(client, MT9M021_GLOBAL_GAIN, mt9m021_calculate_gain(client, control.value));
-    if(ret < 0) dev_dbg(&client->dev, "%s: warning gain override failed\n", __func__);
-
-    control.id = V4L2_CID_FRAME_LENGTH;
-    ret = v4l2_g_ctrl(&priv->ctrl_handler, &control);
-    ret |= mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, control.value);
-    if(ret < 0) dev_dbg(&client->dev, "%s: warning frame length override failed\n", __func__);
-
-    control.id = V4L2_CID_COARSE_TIME;
-    ret = v4l2_g_ctrl(&priv->ctrl_handler, &control);
-    ret |= mt9m021_write(client, MT9M021_COARSE_INT_TIME, control.value);
-    if(ret < 0) dev_dbg(&client->dev, "%s: warning coarse integration time override failed\n", __func__);
-
-    control.id = V4L2_CID_COARSE_TIME_SHORT;
-    ret = v4l2_g_ctrl(&priv->ctrl_handler, &control);
-    ret |= mt9m021_write(client, MT9M021_FINE_INT_TIME, control.value);
-    if(ret < 0) dev_dbg(&client->dev, "%s: warning fine integration time override failed\n", __func__);
+    // Re-write stored values of v4l2 controls
+    for(i = 0; i < ARRAY_SIZE(ctrl_config_list); i++)
+    {
+        control.id = ctrl_config_list[i].id;
+        ret = v4l2_g_ctrl(&priv->ctrl_handler, &control);
+        if(!ret) daxc02_s_control(&priv->ctrl_handler, &control);
+    }
 
     /* start streaming */
     if(strstr(priv->trigger_mode, "slave") != NULL)
