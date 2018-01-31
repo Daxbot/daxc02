@@ -479,7 +479,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .flags          = 0,
         .min            = 0,
         .max            = 1,
-        .def            = 0,
+        .def            = 1,
         .step           = 1,
     },
     {
@@ -490,7 +490,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .flags          = 0,
         .min            = 0,
         .max            = 1,
-        .def            = 0,
+        .def            = 1,
         .step           = 1,
     },
     {
