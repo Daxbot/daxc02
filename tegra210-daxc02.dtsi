@@ -79,6 +79,7 @@ i2c6 = "/host1x/i2c@546c0000";
             use_decibel_gain = "false";
 
             mode0 {
+                /* 1280x720 (720p) */
                 mclk_khz = "24000";
                 num_lanes = "1";
                 tegra_sinterface = "serial_c";
@@ -90,7 +91,7 @@ i2c6 = "/host1x/i2c@546c0000";
                 active_h = "720";
                 pixel_t = "bayer_rggb12";
                 readout_orientation = "0";
-                line_length = "1280";
+                line_length = "1650";
                 inherent_gain = "1";
                 mclk_multiplier = "3.094";
                 pix_clk_hz = "74250000";
@@ -100,9 +101,9 @@ i2c6 = "/host1x/i2c@546c0000";
                 min_hdr_ratio = "";
                 max_hdr_ratio = "";
                 min_framerate = "1";
-                max_framerate = "60";
-                min_exp_time = "34";
-                max_exp_time = "550385";
+                max_framerate = "49";
+                min_exp_time = "22";
+                max_exp_time = "14934";
                 embedded_metadata_height = "0";
             };
             ports {
@@ -201,6 +202,7 @@ i2c6 = "/host1x/i2c@546c0000";
                 use_decibel_gain = "false";
 
                 mode0 {
+                    /* 1280x720 (720p) */
                     mclk_khz = "24000";
                     num_lanes = "1";
                     tegra_sinterface = "serial_a";
@@ -212,7 +214,7 @@ i2c6 = "/host1x/i2c@546c0000";
                     active_h = "720";
                     pixel_t = "bayer_rggb12";
                     readout_orientation = "0";
-                    line_length = "1280";
+                    line_length = "1650";
                     inherent_gain = "1";
                     mclk_multiplier = "3.094";
                     pix_clk_hz = "74250000";
@@ -222,9 +224,9 @@ i2c6 = "/host1x/i2c@546c0000";
                     min_hdr_ratio = "";
                     max_hdr_ratio = "";
                     min_framerate = "1";
-                    max_framerate = "60";
-                    min_exp_time = "34";
-                    max_exp_time = "550385";
+                    max_framerate = "49";
+                    min_exp_time = "22";
+                    max_exp_time = "14934";
                     embedded_metadata_height = "0";
                 };
                 ports {
