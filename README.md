@@ -25,17 +25,10 @@ Export ```$DEVDIR``` as the new JetPack location.
 
     export DEVDIR=~/l4t_r28.1
 
-Now run the installer and follow the instructions.  Once you get to the Package list change the action next to "Install on Target" to "no action."  This will install the dev environment but skip flashing the TX1 with the image.  We will be modifying the kernel to include this driver before flashing.
-
-### Download the Source
-
-Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
-
-    cd $DEVDIR/64_TX1/Linux_for_Tegra_64_tx1/
-    ./source_sync.sh -k tegra-l4t-r28.1
+Now run the installer and follow the instructions.  Once you get to the Package list change the action next to "Install on Target" to "no action."  This will install the dev environment but skip flashing.  We will be modifying the kernel to include this driver before flashing the image.
 
 ### Toolchain
-In addition to the code you'll need the toolchain for cross-compiling the kernel for ARM.  Download the following two binaries.
+In addition to the source you'll need the toolchain for cross-compiling the kernel for ARM.  Download the following two binaries.
 
 * [64bit ARM](https://releases.linaro.org/components/toolchain/binaries/5.4-2017.01/aarch64-linux-gnu/gcc-linaro-5.4.1-2017.01-x86_64_aarch64-linux-gnu.tar.xz)
 * [32bit ARM](https://releases.linaro.org/components/toolchain/binaries/5.4-2017.01/arm-linux-gnueabihf/gcc-linaro-5.4.1-2017.01-x86_64_arm-linux-gnueabihf.tar.xz)
@@ -43,12 +36,16 @@ In addition to the code you'll need the toolchain for cross-compiling the kernel
 Install using the following commands:
 
     sudo mkdir /opt/linaro
-    sudo chmod -R 775 /opt/linaro
-    sudo chown -R $USER /opt/linaro
-    tar -xf gcc-linaro-5.4.1-2017.01-x86_64_aarch64-linux-gnu.tar.xz -C /opt/linaro/
-    tar -xf gcc-linaro-5.4.1-2017.01-x86_64_arm-linux-gnueabihf.tar.xz -C /opt/linaro/
+    sudo tar -xf gcc-linaro-5.4.1-2017.01-x86_64_aarch64-linux-gnu.tar.xz -C /opt/linaro/
+    sudo tar -xf gcc-linaro-5.4.1-2017.01-x86_64_arm-linux-gnueabihf.tar.xz -C /opt/linaro/
 
 ### Jetson TX1: Adding the Driver
+
+Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
+
+    cd $DEVDIR/64_TX1/Linux_for_Tegra_64_tx1/
+    ./source_sync.sh -k tegra-l4t-r28.1
+
 Export ```$SOURCEDIR``` as the sources directory created by ```source_sync.sh```.
 
     export SOURCEDIR=$DEVDIR/64_TX1/Linux_for_Tegra_64_tx1/sources
@@ -71,6 +68,12 @@ Create symbolic links to the new files and insert them into the kernel.
     echo "#include \"tegra210-daxc02.dtsi\"" >> $SOURCEDIR/hardware/nvidia/platform/t210/jetson/kernel-dts/tegra210-jetson-cv-base-p2597-2180-a00.dts
 
 ### Jetson TX2: Adding the Driver
+
+Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
+
+    cd $DEVDIR/64_TX2/Linux_for_Tegra_64_tx2/
+    ./source_sync.sh -k tegra-l4t-r28.1
+
 Export ```$SOURCEDIR``` as the sources directory created by ```source_sync.sh```.
 
     export SOURCEDIR=$DEVDIR/64_TX2/Linux_for_Tegra_tx2/sources
@@ -102,12 +105,18 @@ config VIDEO_I2C_DAXC02
         This is a Video4Linux2 sensor-level driver for DAX-C02
 ```
 
-Insert the following line at the top of ```$SOURCEDIR/drivers/media/i2c/Makefile```
+Insert the following line at the top of ```$SOURCEDIR/kernel/kernel-4.4/drivers/media/i2c/Makefile```
 ```
 obj-$(CONFIG_VIDEO_I2C_DAXC02) += daxc02.o
 ```
 
 ### Compile the Kernel
+
+Install build tools and libraries
+
+    sudo apt update
+    sudo apt install -y build-essential libncurses-dev
+
 Export the following environment variables:
 
     export CROSS_COMPILE=/opt/linaro/gcc-linaro-5.4.1-2017.01-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
