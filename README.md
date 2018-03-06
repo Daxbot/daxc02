@@ -2,11 +2,11 @@ Dax Circuit 02
 ============
 
 Status on Jetson TX1:
+* Fully working under l4t-28.1 (master)
 * Fully working under l4t-24.2 (see releases)
-* Compiles/probes under l4t-28.1, but no image
 
 Status on Jetson TX2:
-* Compiles/probes under l4t-28.1, but no image
+* Unknown, needs testing
 
 Dev Environment Setup
 ---------------------
@@ -147,14 +147,22 @@ Now you can compile the kernel image and device tree blob
 
     make ARCH=arm64 O=$TEGRA_KERNEL_OUT -j4 zImage dtbs
 
-### Transfer to the TX
+### Flashing the TX
+
+Copy the new files over to the the Jetpack kernel directory.
 
     cp $SOURCEDIR/compiled/arch/arm64/boot/Image $SOURCEDIR/../kernel/
     cp $SOURCEDIR/compiled/arch/arm64/boot/zImage $SOURCEDIR/../kernel/
     cp $SOURCEDIR/compiled/arch/arm64/boot/dts/*.dtb $SOURCEDIR/../kernel/dtb/
 
+Update the kernel
+
+    scp $SOURCEDIR/compiled/arch/arm64/boot/Image [user]@[ip]:/boot/
+
+Then restart the TX into recovery mode and flash the DTB
+
     cd $SOURCEDIR/../
-    sudo ./flash.sh <platform> mmcblk0p1
+    sudo ./flash.sh -r -k DTB <platform> mmcblk0p1
 
 where `<platform>` is either:
 * Jetson TX1: jetson-tx1

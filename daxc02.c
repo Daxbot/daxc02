@@ -19,8 +19,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define DEBUG
-
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -141,7 +139,6 @@ struct daxc02 {
     struct camera_common_pdata          *pdata;
 
     enum v4l2_exposure_auto_type        autoexposure;
-    const char*                         trigger_mode;
 
     struct v4l2_ctrl                    *ctrls[];
 };
@@ -169,7 +166,6 @@ static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status);
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format);
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format);
 static int daxc02_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
-static int daxc02_get_trigger_mode(struct daxc02 *priv);
 static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client);
 static int daxc02_ctrls_init(struct daxc02 *priv);
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id);
@@ -318,6 +314,10 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
             ret = mt9m021_write(client, MT9M021_FRAME_LENGTH_LINES, ctrl->val);
             break;
 
+        case V4L2_CID_HDR_EN:
+            dev_dbg(&client->dev, "%s: V4L2_CID_HDR_EN - %d\n", __func__, ctrl->val);
+            break;
+
         default:
             dev_err(&client->dev, "%s: UNKNOWN CTRL ID - %d\n", __func__, ctrl->val);
             return -EINVAL;
@@ -440,6 +440,17 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
+        .id             = V4L2_CID_COARSE_TIME_SHORT,
+        .name           = "Coarse Time Short",
+        .type           = V4L2_CTRL_TYPE_INTEGER,
+        .flags          = V4L2_CTRL_FLAG_SLIDER,
+        .min            = 0x0,
+        .max            = MT9M021_LLP_RECOMMENDED-750,
+        .def            = MT9M021_FINE_INT_TIME_DEF,
+        .step           = 1,
+    },
+    {
+        .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_EXPOSURE_AUTO,
         .name           = "Auto Exposure",
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -493,6 +504,17 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .def            = MT9M021_WINDOW_HEIGHT_DEF + 37,
         .step           = 1,
     },
+    {
+		.ops            = &daxc02_ctrl_ops,
+		.id             = V4L2_CID_HDR_EN,
+		.name           = "HDR enable",
+		.type           = V4L2_CTRL_TYPE_INTEGER_MENU,
+		.min            = 0,
+		.max            = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
+		.menu_skip_mask = 0,
+		.def            = 0,
+		.qmenu_int      = switch_ctrl_qmenu,
+	}
 };
 
 
@@ -1015,11 +1037,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     }
 
     /* start streaming */
-    if(strstr(priv->trigger_mode, "slave") != NULL)
-    {
-        ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_TRIGGER_MODE);
-    }
-    else ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_MASTER_MODE);
+    ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_MASTER_MODE);
 
     return ret;
 }
@@ -1102,9 +1120,25 @@ static struct v4l2_subdev_ops daxc02_subdev_ops = {
         Camera Common Operations
 ****************************************************/
 
+static int daxc02_write_reg(struct camera_common_data *s_data, u16 addr, u8 val)
+{
+    struct daxc02 *priv = (struct daxc02*)s_data->priv;
+    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
+    return 0;
+}
+
+static inline int daxc02_read_reg(struct camera_common_data *s_data, u16 addr, u8 *val)
+{
+    struct daxc02 *priv = (struct daxc02*)s_data->priv;
+    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
+    return 0;
+}
+
 static struct camera_common_sensor_ops daxc02_common_ops = {
     .power_on               = daxc02_power_on,
     .power_off              = daxc02_power_off,
+    .write_reg = daxc02_write_reg,
+    .read_reg = daxc02_read_reg,
 };
 
 
@@ -1151,37 +1185,6 @@ static struct of_device_id daxc02_of_match[] = {
         { .compatible = "nova,daxc02", },
         { },
 };
-
-/** daxc02_parse_dt - Fetch the trigger mode from the device tree
- * @priv: pointer to the daxc02 private structure
- */
- static int daxc02_get_trigger_mode(struct daxc02 *priv)
- {
-    int ret = 0;
-    struct i2c_client *client = priv->i2c_client;
-    struct device_node *node = client->dev.of_node;
-    const struct of_device_id *match;
-
-    dev_dbg(&client->dev, "%s\n", __func__);
-
-    if(!node) return -EFAULT;
-
-    match = of_match_device(daxc02_of_match, &client->dev);
-    if(!match)
-    {
-        dev_err(&client->dev, "Failed to find matching dt id\n");
-        return -EFAULT;
-    }
-
-    ret = of_property_read_string(node, "trigger_mode", &priv->trigger_mode);
-    if(ret == -EINVAL)
-    {
-        dev_warn(&client->dev, "trigger_mode not in device tree\n");
-        *(&priv->trigger_mode) = "master";
-    }
-
-    return 0;
- }
 
 /** daxc02_parse_dt - Parses the device tree to load camera common data.
  * @client: pointer to the i2c client.
@@ -1339,10 +1342,11 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
     if(!common_data) return -ENOMEM;
 
-    priv = devm_kzalloc(&client->dev,
-                sizeof(struct daxc02) + sizeof(struct v4l2_ctrl *) *
-                ARRAY_SIZE(ctrl_config_list),
-                GFP_KERNEL);
+    priv = devm_kzalloc(
+        &client->dev,
+        sizeof(struct daxc02) + sizeof(struct v4l2_ctrl*)*ARRAY_SIZE(ctrl_config_list),
+        GFP_KERNEL);
+
     if(!priv) return -ENOMEM;
 
     priv->pdata = daxc02_parse_dt(client);
@@ -1363,8 +1367,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     common_data->priv               = (void *)priv;
     common_data->numctrls           = ARRAY_SIZE(ctrl_config_list);
     common_data->def_mode           = MT9M021_MODE_1280X720;
-    common_data->def_width          = MT9M021_PIXEL_ARRAY_WIDTH;
-    common_data->def_height         = MT9M021_PIXEL_ARRAY_HEIGHT;
+    common_data->def_width          = 1280;
+    common_data->def_height         = 720;
     common_data->fmt_width          = common_data->def_width;
     common_data->fmt_height         = common_data->def_height;
     common_data->def_clk_freq       = MT9M021_TARGET_FREQ;
@@ -1374,14 +1378,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->subdev                    = &common_data->subdev;
     priv->subdev->dev               = &client->dev;
     priv->s_data->dev               = &client->dev;
-
-    ret = daxc02_get_trigger_mode(priv);
-    if(ret) return ret;
-
-    if(strstr(priv->trigger_mode, "slave") != NULL)
-    {
-        dev_info(&client->dev, "slave mode activated\n");
-    }
 
     ret = daxc02_power_get(priv);
     if(ret) return ret;
@@ -1466,6 +1462,7 @@ static const struct i2c_device_id daxc02_id[] = {
     { "daxc02", 0 },
     { }
 };
+
 static struct i2c_driver daxc02_i2c_driver = {
     .driver = {
         .name = "daxc02",
