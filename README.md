@@ -1,5 +1,9 @@
 Dax Circuit 02
-============
+==============
+
+DAX-C02 is an addon board for the Nvidia Jetson TX1 and TX2 Development Boards that connects two Global Shutter, 1.2 Megapixel LI-M021C-MIPI cameras to the Jetson’s MIPI-CSI bus.
+
+The Linux for Tegra driver is provided publicly on GitHub to anyone with or without purchase of the DAX-C02 system.  The driver is based on the Nvidia OV5693 sample driver modified to control the LI-M021C-MIPI. The driver abstracts independent control of the CMOS sensors and is made to work directly with the TX1 and TX2 integrated image processing system.  Interfacing with the driver should be handled using Nvidia’s tools. Other V4L2 tools may work, but are not officially supported.
 
 Status on Jetson TX1:
 * Fully working under l4t-28.1 (master)
@@ -8,8 +12,18 @@ Status on Jetson TX1:
 Status on Jetson TX2:
 * Unknown, needs testing
 
-Dev Environment Setup
----------------------
+## Table of Contents
+
+1. [Dev Environment Setup](#setup)
+2. [Installing the Toolchain](#toolchain)
+3. [Jetson TX1: Adding the Driver](#tx1-driver)
+4. [Jetson TX2: Adding the Driver](#tx2-driver)
+5. [Update Kconfig](#kconfig)
+6. [Compile the Kernel](#compile)
+7. [Flashing the TX](#flash)
+
+
+## Dev Environment Setup <a name="setup"></a>
 This section will describe the process of setting up the development environment on a fresh Ubuntu installation using [Jetpack](https://developer.nvidia.com/embedded/jetpack).
 
 First download Jetpack and make the file executable
@@ -27,7 +41,7 @@ Export ```$DEVDIR``` as the new JetPack location.
 
 Now run the installer and follow the instructions.  Once you get to the Package list change the action next to "Install on Target" to "no action."  This will install the dev environment but skip flashing.  We will be modifying the kernel to include this driver before flashing the image.
 
-### Toolchain
+### Installing the Toolchain <a name="toolchain"></a>
 In addition to the source you'll need the toolchain for cross-compiling the kernel for ARM.  Download the following two binaries.
 
 * [64bit ARM](https://releases.linaro.org/components/toolchain/binaries/5.4-2017.01/aarch64-linux-gnu/gcc-linaro-5.4.1-2017.01-x86_64_aarch64-linux-gnu.tar.xz)
@@ -39,7 +53,7 @@ Install using the following commands:
     sudo tar -xf gcc-linaro-5.4.1-2017.01-x86_64_aarch64-linux-gnu.tar.xz -C /opt/linaro/
     sudo tar -xf gcc-linaro-5.4.1-2017.01-x86_64_arm-linux-gnueabihf.tar.xz -C /opt/linaro/
 
-### Jetson TX1: Adding the Driver
+### Jetson TX1: Adding the Driver <a name="tx1-driver"></a>
 
 Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
 
@@ -67,7 +81,7 @@ Create symbolic links to the new files and insert them into the kernel.
     sed -e '/tegra210-jetson-cv-camera-modules.dtsi/ s;^;//;' -i $SOURCEDIR/hardware/nvidia/platform/t210/jetson/kernel-dts/tegra210-jetson-cv-base-p2597-2180-a00.dts
     echo "#include \"tegra210-daxc02.dtsi\"" >> $SOURCEDIR/hardware/nvidia/platform/t210/jetson/kernel-dts/tegra210-jetson-cv-base-p2597-2180-a00.dts
 
-### Jetson TX2: Adding the Driver
+### Jetson TX2: Adding the Driver <a name="tx2-driver"></a>
 
 Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
 
@@ -95,7 +109,8 @@ Create symbolic links to the new files and insert them into the kernel.
     sed -e '/tegra186-quill-camera-modules.dtsi/ s;^;//;' -i $SOURCEDIR/hardware/nvidia/platform/t18x/quill/kernel-dts/tegra186-quill-p3310-1000-a00-00-base.dts
     echo "#include \"tegra186-daxc02.dtsi\"" >> $SOURCEDIR/hardware/nvidia/platform/t18x/quill/kernel-dts/tegra186-quill-p3310-1000-a00-00-base.dts
 
-### Update Kconfig
+### Update Kconfig <a name="kconfig"></a>
+
 Insert the following at the top of ```$SOURCEDIR/kernel/kernel-4.4/drivers/media/i2c/Kconfig``` after "```if VIDEO_V4L2```"
 ```
 config VIDEO_I2C_DAXC02
@@ -110,7 +125,7 @@ Insert the following line at the top of ```$SOURCEDIR/kernel/kernel-4.4/drivers/
 obj-$(CONFIG_VIDEO_I2C_DAXC02) += daxc02.o
 ```
 
-### Compile the Kernel
+### Compile the Kernel <a name="compile"></a>
 
 Install build tools and libraries
 
@@ -147,7 +162,7 @@ Now you can compile the kernel image and device tree blob
 
     make ARCH=arm64 O=$TEGRA_KERNEL_OUT -j4 zImage dtbs
 
-### Flashing the TX
+### Flashing the TX <a name="flash"></a>
 
 Copy the new files over to the the Jetpack kernel directory.
 

@@ -1,10 +1,15 @@
 /*
- * daxc02.h
- *
  * Driver for Nova Dynamics DAX-C02 dual mipi camera board.
- * Used to control Leopard Imaging LI-M021C-MIPI cameras.
+ * Used to interface Leopard Imaging LI-M021C-MIPI cameras to the Jetson TX1/TX2.
  *
- * Copyright (c) 2017 Wilkins White <ww@novadynamics.com>
+ * Copyright 2017-2018 Nova Dynamics LLC
+ * Written by Wilkins White <ww@novadynamics.com>
+ * 
+ * Based on SoC Camera driver for Sony OV5693 written by
+ * David Wang, Copyright 2013-2017 NVIDIA CORPORATION
+ * 
+ * Based on Aptina MT9M021 Camera driver written by
+ * Prashanth Subramanya, Copyright 2013 Aptina Imaging
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the version 2 of the GNU General Public License
