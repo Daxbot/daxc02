@@ -6,7 +6,8 @@ DAX-C02 is an addon board for the Nvidia Jetson TX1 and TX2 Development Boards t
 The Linux for Tegra driver is provided publicly on GitHub to anyone with or without purchase of the DAX-C02 system.  The driver is based on the Nvidia OV5693 sample driver modified to control the LI-M021C-MIPI. The driver abstracts independent control of the CMOS sensors and is made to work directly with the TX1 and TX2 integrated image processing system.  Interfacing with the driver should be handled using Nvidia’s tools. Other V4L2 tools may work, but are not officially supported.
 
 Status on Jetson TX1:
-* Fully working under l4t-28.1 (master)
+* Image, but no ISP under l4t-28.2 (not yet supported)
+* Image, but no ISP under l4t-28.1 (master)
 * Fully working under l4t-24.2 (see releases)
 
 Status on Jetson TX2:
