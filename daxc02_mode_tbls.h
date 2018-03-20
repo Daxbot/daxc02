@@ -30,7 +30,7 @@
 #include <media/camera_common.h>
 #include "daxc02.h"
 
-#define MT9M021_TABLE_SLEEP     0
+#define MT9M021_TABLE_WAIT_MS   0
 #define MT9M021_TABLE_END       1
 #define MT9M021_MAX_RETRIES     3
 
@@ -176,19 +176,19 @@ static const struct reg_16 daxc02_mode_table_common[] = {
     {MT9M021_VT_SYS_CLK_DIV,    MT9M021_PLL_P2},
     {MT9M021_PRE_PLL_CLK_DIV,   MT9M021_PLL_N},
     {MT9M021_PLL_MULTIPLIER,    MT9M021_PLL_M},
-    {MT9M021_TABLE_SLEEP,       200},
+    {MT9M021_TABLE_WAIT_MS,     200},
     {MT9M021_DIGITAL_TEST,      0x0000},
 
     /* Column correction. */
     {MT9M021_RESET_REG,         MT9M021_STREAM_OFF},
     {MT9M021_COLUMN_CORRECTION, 0x0007},
-    {MT9M021_TABLE_SLEEP,       200},
+    {MT9M021_TABLE_WAIT_MS,     200},
     {MT9M021_RESET_REG,         MT9M021_STREAM_ON},
-    {MT9M021_TABLE_SLEEP,       200},
+    {MT9M021_TABLE_WAIT_MS,     200},
     {MT9M021_RESET_REG,         MT9M021_STREAM_OFF},
-    {MT9M021_TABLE_SLEEP,       200},
+    {MT9M021_TABLE_WAIT_MS,     200},
     {MT9M021_COLUMN_CORRECTION, 0xE007},
-    {MT9M021_TABLE_SLEEP,       200},
+    {MT9M021_TABLE_WAIT_MS,     200},
     {MT9M021_TEST_RAW_MODE,     0x0000},
     {MT9M021_RESERVED_30EA,     0x0C00},
     {MT9M021_DARK_CTRL,         0x0404},

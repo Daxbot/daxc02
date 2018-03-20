@@ -160,14 +160,13 @@ Device Drivers --->
 
 Now you can compile the kernel image and device tree blob
 
-    make ARCH=arm64 O=$TEGRA_KERNEL_OUT -j4 zImage dtbs
+    make ARCH=arm64 O=$TEGRA_KERNEL_OUT -j4 Image dtbs
 
 ### Flashing the TX <a name="flash"></a>
 
 Copy the new files over to the the Jetpack kernel directory.
 
     cp $SOURCEDIR/compiled/arch/arm64/boot/Image $SOURCEDIR/../kernel/
-    cp $SOURCEDIR/compiled/arch/arm64/boot/zImage $SOURCEDIR/../kernel/
     cp $SOURCEDIR/compiled/arch/arm64/boot/dts/*.dtb $SOURCEDIR/../kernel/dtb/
 
 Update the kernel

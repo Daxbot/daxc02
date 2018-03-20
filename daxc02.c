@@ -24,6 +24,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define DEBUG 1
+
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -46,6 +48,7 @@
 #include "daxc02.h"
 #include "daxc02_mode_tbls.h"
 #include "../platform/tegra/camera/camera_gpio.h"
+
 
 /***************************************************
         TC358746AXBG MIPI Converter Defines
@@ -143,8 +146,6 @@ struct daxc02 {
     struct camera_common_data           *s_data;
     struct camera_common_pdata          *pdata;
 
-    enum v4l2_exposure_auto_type        autoexposure;
-
     struct v4l2_ctrl                    *ctrls[];
 };
 
@@ -162,9 +163,7 @@ static inline int mt9m021_read(struct i2c_client *client, uint16_t addr);
 static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val);
 static int mt9m021_write_table(struct i2c_client *client, const struct reg_16 table[]);
 static int daxc02_bridge_setup(struct i2c_client *client);
-static int mt9m021_is_streaming(struct i2c_client *client);
 static uint8_t mt9m021_calculate_gain(struct i2c_client *client, uint8_t value);
-static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode);
 static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode flash_mode);
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable);
 static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status);
@@ -220,12 +219,6 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
         case V4L2_CID_FLASH_LED_MODE:
             dev_dbg(&client->dev, "%s: V4L2_CID_FLASH_LED_MODE - %d\n", __func__, ctrl->val);
             ret = mt9m021_set_flash(client, (enum v4l2_flash_led_mode)ctrl->val);
-            break;
-
-        case V4L2_CID_EXPOSURE_AUTO:
-            dev_dbg(&client->dev, "%s: V4L2_CID_EXPOSURE_AUTO - %d\n", __func__, ctrl->val);
-            ret = mt9m021_set_autoexposure(client, (enum v4l2_exposure_auto_type)ctrl->val);
-            if(ret < 0) return ret;
             break;
 
         case V4L2_CID_COARSE_TIME:
@@ -456,17 +449,6 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_EXPOSURE_AUTO,
-        .name           = "Auto Exposure",
-        .type           = V4L2_CTRL_TYPE_INTEGER,
-        .flags          = 0,
-        .min            = V4L2_EXPOSURE_MANUAL,
-        .max            = V4L2_EXPOSURE_SHUTTER_PRIORITY,
-        .def            = V4L2_EXPOSURE_MANUAL,
-        .step           = 1,
-    },
-    {
-        .ops            = &daxc02_ctrl_ops,
         .id             = V4L2_CID_FLASH_LED_MODE,
         .name           = "Flash",
         .type           = V4L2_CTRL_TYPE_INTEGER,
@@ -666,11 +648,9 @@ static int daxc02_power_get(struct daxc02 *priv)
     if(!ret)
     {
         pw->reset_gpio = pdata->reset_gpio;
-        gpio_request(pw->reset_gpio, "cam_reset_gpio");
 
-        // TODO: Figure out why this always returns EBUSY
-        //err = gpio_request(pw->reset_gpio, "cam_reset_gpio");
-        //if(err < 0) dev_dbg(&priv->i2c_client->dev, "%s: can't request reset_gpio %d\n", __func__, err);
+        ret = gpio_request(pw->reset_gpio, "daxc02_reset");
+        if(ret < 0) dev_err(&priv->i2c_client->dev, "%s: can't request reset_gpio %d\n", __func__, ret);
     }
 
     pw->state = SWITCH_OFF;
@@ -783,7 +763,7 @@ static int mt9m021_write_table(struct i2c_client *client, const struct reg_16 ta
     for(next = table;; next++)
     {
         if(next->addr == MT9M021_TABLE_END) break;
-        else if(next->addr == MT9M021_TABLE_SLEEP)
+        else if(next->addr == MT9M021_TABLE_WAIT_MS)
         {
             msleep_range(next->val);
         }
@@ -843,21 +823,6 @@ static int daxc02_bridge_setup(struct i2c_client *client)
     return ret;
 }
 
-/** mt9m021_is_streaming - returns if the sensor is streaming.
- * @client: pointer to the i2c client.
- */
-static int mt9m021_is_streaming(struct i2c_client *client)
-{
-    uint16_t streaming;
-
-    dev_dbg(&client->dev, "%s\n", __func__);
-
-    streaming = mt9m021_read(client, MT9M021_RESET_REG);
-    streaming = ( (streaming >> 2) & 0x0001);
-
-    return (streaming != 0);
-}
-
 /** mt9m021_calculate_gain - sets the digital gain.
  * @client: pointer to the i2c client.
  * @value: gain to set [1-224].
@@ -909,83 +874,6 @@ static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode
 
     return ret;
 }
-
-/** mt9m021_set_autoexposure - enables or disables autoexposure.
- * @client: pointer to the i2c client.
- * @ae_mode: v4l2 autoexposure mode.
- */
-static int mt9m021_set_autoexposure(struct i2c_client *client, enum v4l2_exposure_auto_type ae_mode )
-{
-    struct camera_common_data *common_data = to_camera_common_data(client);
-    struct daxc02 *priv = common_data->priv;
-    int streaming;
-    int ret = 0;
-
-    dev_dbg(&client->dev, "%s\n", __func__);
-
-    /* Save the current streaming state. Used later to restore it */
-    streaming = mt9m021_is_streaming(client);
-
-    switch(ae_mode)
-    {
-        case V4L2_EXPOSURE_AUTO: /* Shutter and Aperture */
-            dev_err(&client->dev, "Unsupported auto-exposure mode requested: %d\n", ae_mode);
-            ret = -EINVAL;
-            break;
-
-        case V4L2_EXPOSURE_MANUAL:
-            if(streaming)
-            {
-                ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
-                if(ret < 0) return ret;
-            }
-
-            ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1802);
-            if(ret < 0) return ret;
-            ret = mt9m021_write(client, MT9M021_AE_CTRL, 0x0000);
-            if(ret < 0) return ret;
-
-            if(streaming)
-            {
-                ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
-                if(ret < 0) return ret;
-            }
-            break;
-
-        case V4L2_EXPOSURE_SHUTTER_PRIORITY:
-            if(streaming)
-            {
-                ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_OFF);
-                if(ret < 0) return ret;
-            }
-
-            ret = mt9m021_write(client, MT9M021_EMBEDDED_DATA_CTRL, 0x1982);
-            if(ret < 0) return ret;
-            ret = mt9m021_write(client, MT9M021_AE_CTRL, 0x0013);
-            if(ret < 0) return ret;
-
-            if(streaming)
-            {
-                ret = mt9m021_write(client, MT9M021_RESET_REG, MT9M021_STREAM_ON);
-                if(ret < 0) return ret;
-            }
-            break;
-
-        case V4L2_EXPOSURE_APERTURE_PRIORITY:
-            dev_err(&client->dev, "Unsupported auto-exposure mode requested: %d\n", ae_mode);
-            ret = -EINVAL;
-            break;
-
-        default:
-            dev_err(&client->dev, "Auto Exposure mode out of range: %d\n", ae_mode);
-            ret = -ERANGE;
-            break;
-    }
-    if(ret == 0) priv->autoexposure = ae_mode;
-
-    return ret;
-}
-
 
 /***************************************************
         V4L2 Subdev Video Operations
@@ -1125,25 +1013,9 @@ static struct v4l2_subdev_ops daxc02_subdev_ops = {
         Camera Common Operations
 ****************************************************/
 
-static int daxc02_write_reg(struct camera_common_data *s_data, u16 addr, u8 val)
-{
-    struct daxc02 *priv = (struct daxc02*)s_data->priv;
-    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
-    return 0;
-}
-
-static inline int daxc02_read_reg(struct camera_common_data *s_data, u16 addr, u8 *val)
-{
-    struct daxc02 *priv = (struct daxc02*)s_data->priv;
-    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
-    return 0;
-}
-
 static struct camera_common_sensor_ops daxc02_common_ops = {
     .power_on               = daxc02_power_on,
     .power_off              = daxc02_power_off,
-    .write_reg = daxc02_write_reg,
-    .read_reg = daxc02_read_reg,
 };
 
 
@@ -1187,7 +1059,7 @@ static const struct media_entity_operations daxc02_media_ops = {
  * Device tree ID for matching.
  */
 static struct of_device_id daxc02_of_match[] = {
-        { .compatible = "nova,daxc02", },
+        { .compatible = "novadynamics,daxc02", },
         { },
 };
 
@@ -1333,7 +1205,7 @@ static int daxc02_ctrls_init(struct daxc02 *priv)
  */
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-    struct camera_common_data *common_data;
+    struct camera_common_data *s_data;
     struct device_node *node = client->dev.of_node;
     struct daxc02 *priv;
     char debugfs_name[10];
@@ -1344,8 +1216,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 
     if(!IS_ENABLED(CONFIG_OF) || !node) return -EINVAL;
 
-    common_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
-    if(!common_data) return -ENOMEM;
+    s_data = devm_kzalloc(&client->dev, sizeof(struct camera_common_data), GFP_KERNEL);
+    if(!s_data) return -ENOMEM;
 
     priv = devm_kzalloc(
         &client->dev,
@@ -1362,32 +1234,33 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
         return -EFAULT;
     }
 
-    common_data->ops                = &daxc02_common_ops;
-    common_data->ctrl_handler       = &priv->ctrl_handler;
-    common_data->i2c_client         = client;
-    common_data->frmfmt             = daxc02_frmfmt;
-    common_data->colorfmt           = camera_common_find_datafmt(MEDIA_BUS_FMT_SRGGB12_1X12);
-    common_data->power              = &priv->power;
-    common_data->ctrls              = priv->ctrls;
-    common_data->priv               = (void *)priv;
-    common_data->numctrls           = ARRAY_SIZE(ctrl_config_list);
-    common_data->def_mode           = MT9M021_MODE_1280X720;
-    common_data->def_width          = 1280;
-    common_data->def_height         = 720;
-    common_data->fmt_width          = common_data->def_width;
-    common_data->fmt_height         = common_data->def_height;
-    common_data->def_clk_freq       = MT9M021_TARGET_FREQ;
+    s_data->ops                = &daxc02_common_ops;
+    s_data->ctrl_handler       = &priv->ctrl_handler;
+    s_data->i2c_client         = client;
+    s_data->frmfmt             = daxc02_frmfmt;
+    s_data->colorfmt           = camera_common_find_datafmt(MEDIA_BUS_FMT_SRGGB12_1X12);
+    s_data->power              = &priv->power;
+    s_data->ctrls              = priv->ctrls;
+    s_data->priv               = (void *)priv;
+    s_data->numctrls           = ARRAY_SIZE(ctrl_config_list);
+	s_data->numfmts            = ARRAY_SIZE(daxc02_frmfmt);
+    s_data->def_mode           = MT9M021_MODE_1280X720;
+    s_data->def_width          = 1280;
+    s_data->def_height         = 720;
+    s_data->fmt_width          = s_data->def_width;
+    s_data->fmt_height         = s_data->def_height;
+    s_data->def_clk_freq       = MT9M021_TARGET_FREQ;
 
     priv->i2c_client                = client;
-    priv->s_data                    = common_data;
-    priv->subdev                    = &common_data->subdev;
+    priv->s_data                    = s_data;
+    priv->subdev                    = &s_data->subdev;
     priv->subdev->dev               = &client->dev;
     priv->s_data->dev               = &client->dev;
 
     ret = daxc02_power_get(priv);
     if(ret) return ret;
 
-    ret = daxc02_power_on(common_data);
+    ret = daxc02_power_on(s_data);
     if(ret) return ret;
 
     reg16 = mt9m021_read(client, MT9M021_CHIP_ID_REG);
@@ -1398,14 +1271,14 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     }
     else dev_info(&client->dev, "Aptina MT9M021 detected!\n");
 
-    ret = camera_common_parse_ports(client, common_data);
+    ret = camera_common_parse_ports(client, s_data);
     if(ret)
     {
         dev_err(&client->dev, "Failed to find port info\n");
         return ret;
     }
-    sprintf(debugfs_name, "daxc02_%c", common_data->csi_port + 'a');
-    camera_common_create_debugfs(common_data, debugfs_name);
+    sprintf(debugfs_name, "daxc02_%c", s_data->csi_port + 'a');
+    camera_common_create_debugfs(s_data, debugfs_name);
 
     v4l2_i2c_subdev_init(priv->subdev, client, &daxc02_subdev_ops);
 
@@ -1453,7 +1326,6 @@ static int daxc02_remove(struct i2c_client *client)
     #endif
 
     v4l2_ctrl_handler_free(&priv->ctrl_handler);
-    daxc02_power_off(common_data);
     daxc02_power_put(priv);
     camera_common_remove_debugfs(common_data);
 
