@@ -77,9 +77,9 @@ i2c8 = "/i2c@31e0000";
                 active_h = "720";
                 pixel_t = "bayer_rggb12";
                 readout_orientation = "0";
-                line_length = "1280";
+                line_length = "1650";
                 inherent_gain = "1";
-                mclk_multiplier = "3.094";
+                mclk_multiplier = "3.09375";
                 pix_clk_hz = "74250000";
 
                 min_gain_val = "1";
@@ -158,9 +158,9 @@ i2c8 = "/i2c@31e0000";
                 active_h = "720";
                 pixel_t = "bayer_rggb12";
                 readout_orientation = "0";
-                line_length = "1280";
+                line_length = "1650";
                 inherent_gain = "1";
-                mclk_multiplier = "3.094";
+                mclk_multiplier = "3.09375";
                 pix_clk_hz = "74250000";
 
                 min_gain_val = "1";

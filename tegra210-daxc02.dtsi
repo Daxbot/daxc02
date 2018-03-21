@@ -189,13 +189,17 @@ i2c6 = "/host1x/i2c@546c0000";
                     dpcm_enable = "false";
                     cil_settletime = "0";
 
+                    dynamic_pixel_bit_depth = "12";
+                    csi_pixel_bit_depth = "12";
+                    mode_type = "bayer";
+                    pixel_phase = "rggb";
+
                     active_w = "1280";
                     active_h = "720";
-                    pixel_t = "bayer_rggb12";
                     readout_orientation = "0";
                     line_length = "1650";
                     inherent_gain = "1";
-                    mclk_multiplier = "3.094";
+                    mclk_multiplier = "3.09375";
                     pix_clk_hz = "74250000";
 
                     min_gain_val = "1";
@@ -272,13 +276,17 @@ i2c6 = "/host1x/i2c@546c0000";
                 dpcm_enable = "false";
                 cil_settletime = "0";
 
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
                 active_w = "1280";
                 active_h = "720";
-                pixel_t = "bayer_rggb12";
                 readout_orientation = "0";
                 line_length = "1650";
                 inherent_gain = "1";
-                mclk_multiplier = "3.094";
+                mclk_multiplier = "3.09375";
                 pix_clk_hz = "74250000";
 
                 min_gain_val = "1";

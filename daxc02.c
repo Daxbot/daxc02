@@ -24,8 +24,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define DEBUG 1
-
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -1249,7 +1247,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     s_data->def_height         = 720;
     s_data->fmt_width          = s_data->def_width;
     s_data->fmt_height         = s_data->def_height;
-    s_data->def_clk_freq       = MT9M021_TARGET_FREQ;
+    s_data->def_clk_freq       = MT9M021_EXT_FREQ;
 
     priv->i2c_client                = client;
     priv->s_data                    = s_data;
