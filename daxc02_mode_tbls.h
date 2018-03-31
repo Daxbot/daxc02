@@ -210,7 +210,6 @@ static const struct reg_16 daxc02_mode_table_common[] = {
 };
 
 static const struct reg_16 daxc02_mode_1280x720[] = {
-    /** Configure frame size. */
     {MT9M021_Y_ADDR_START,      0x0078},
     {MT9M021_X_ADDR_START,      0x0001},
     {MT9M021_Y_ADDR_END,        0x0347},
@@ -225,21 +224,63 @@ static const struct reg_16 daxc02_mode_1280x720[] = {
     {MT9M021_TABLE_END,         0x0000}
 };
 
+static const struct reg_16 daxc02_mode_1280x960[] = {
+    {MT9M021_Y_ADDR_START,      0x0000},
+    {MT9M021_X_ADDR_START,      0x0001},
+    {MT9M021_Y_ADDR_END,        0x03BF},
+    {MT9M021_X_ADDR_END,        0x0500},
+    {MT9M021_LINE_LENGTH_PCK,   MT9M021_LLP_RECOMMENDED},
+    {MT9M021_X_ODD_INC,         0x0001},
+    {MT9M021_Y_ODD_INC,         0x0001},
+    {MT9M021_READ_MODE,         0x0000},
+    {MT9M021_DIGITAL_BINNING,   MT9M021_BINNING_DEF},
+    {MT9M021_READ_SPEED,        0x0010},
+
+    {MT9M021_TABLE_END,         0x0000}
+};
+
+static const struct reg_16 daxc02_mode_1280x580[] = {
+    {MT9M021_Y_ADDR_START,      0x00BE},
+    {MT9M021_X_ADDR_START,      0x0001},
+    {MT9M021_Y_ADDR_END,        0x0301},
+    {MT9M021_X_ADDR_END,        0x0500},
+    {MT9M021_LINE_LENGTH_PCK,   MT9M021_LLP_RECOMMENDED},
+    {MT9M021_X_ODD_INC,         0x0001},
+    {MT9M021_Y_ODD_INC,         0x0001},
+    {MT9M021_READ_MODE,         0x0000},
+    {MT9M021_DIGITAL_BINNING,   MT9M021_BINNING_DEF},
+    {MT9M021_READ_SPEED,        0x0010},
+
+    {MT9M021_TABLE_END,         0x0000}
+};
+
 enum {
-    MT9M021_MODE_1280X720,
+    MT9M021_MODE_1280X720_30FPS,
+    MT9M021_MODE_1280X960_30FPS,
+    MT9M021_MODE_1280X580_30FPS,
+    MT9M021_MODE_1280X580_60FPS,
 };
 
 static const struct reg_16 *mode_table[] = {
-    [MT9M021_MODE_1280X720]         = daxc02_mode_1280x720,
+    [MT9M021_MODE_1280X720_30FPS] = daxc02_mode_1280x720,
+    [MT9M021_MODE_1280X960_30FPS] = daxc02_mode_1280x960,
+    [MT9M021_MODE_1280X580_30FPS] = daxc02_mode_1280x580,
+    [MT9M021_MODE_1280X580_60FPS] = daxc02_mode_1280x580,
 };
 
+static const int daxc02_30fps[] = {
+    30,
+};
 
 static const int daxc02_60fps[] = {
     60,
 };
 
 static const struct camera_common_frmfmt daxc02_frmfmt[] = {
-    {{1280, 720},    daxc02_60fps,    1, 0,    MT9M021_MODE_1280X720},
+    {{1280, 720},    daxc02_30fps,    1, 0,    MT9M021_MODE_1280X720_30FPS},
+    {{1280, 960},    daxc02_30fps,    1, 0,    MT9M021_MODE_1280X960_30FPS},
+    {{1280, 580},    daxc02_30fps,    1, 0,    MT9M021_MODE_1280X580_30FPS},
+    {{1280, 580},    daxc02_60fps,    1, 0,    MT9M021_MODE_1280X580_60FPS},
 };
 
 #endif  /* __MT9M021_TABLES__ */
