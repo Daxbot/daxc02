@@ -85,7 +85,7 @@ Create symbolic links to the new files and insert them into the kernel.
 
 Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
 
-    cd $DEVDIR/64_TX2/Linux_for_Tegra_64_tx2/
+    cd $DEVDIR/64_TX2/Linux_for_Tegra_tx2/
     ./source_sync.sh -k tegra-l4t-r28.1
 
 Export ```$SOURCEDIR``` as the sources directory created by ```source_sync.sh```.
@@ -111,7 +111,7 @@ Create symbolic links to the new files and insert them into the kernel.
 
 ### Update Kconfig <a name="kconfig"></a>
 
-Insert the following at the top of ```$SOURCEDIR/kernel/kernel-4.4/drivers/media/i2c/Kconfig``` after "```if VIDEO_V4L2```"
+Insert the following at the top of ```$SOURCEDIR/kernel/kernel-4.4/drivers/media/i2c/Kconfig```
 ```
 config VIDEO_I2C_DAXC02
     tristate "DAXC02 camera sensor support"
@@ -176,7 +176,11 @@ Update the kernel
 Then restart the TX into recovery mode and flash the DTB
 
     cd $SOURCEDIR/../
-    sudo ./flash.sh -r -k DTB <platform> mmcblk0p1
+    sudo ./flash.sh -r -k <partition> <platform> mmcblk0p1
+
+where `<partition>` is either:
+* Jetson TX1: DTB
+* Jetson TX2: kernel-dtb
 
 where `<platform>` is either:
 * Jetson TX1: jetson-tx1

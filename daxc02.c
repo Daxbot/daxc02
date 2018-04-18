@@ -24,6 +24,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define DEBUG
+
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -46,7 +48,6 @@
 #include "daxc02.h"
 #include "daxc02_mode_tbls.h"
 #include "../platform/tegra/camera/camera_gpio.h"
-
 
 /***************************************************
         TC358746AXBG MIPI Converter Defines
@@ -156,7 +157,6 @@ struct daxc02 {
 static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl);
 static int daxc02_power_on(struct camera_common_data *s_data);
 static int daxc02_power_off(struct camera_common_data *s_data);
-static int daxc02_power_put(struct daxc02 *priv);
 static int daxc02_power_get(struct daxc02 *priv);
 static int mt9m021_read(struct i2c_client *client, uint16_t addr, uint16_t *val);
 static int mt9m021_write(struct i2c_client *client, uint16_t addr, uint16_t val);
@@ -171,7 +171,7 @@ static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status);
 static int mt9m021_get_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format);
 static int mt9m021_set_format(struct v4l2_subdev *sd, struct v4l2_subdev_pad_config *cfg, struct v4l2_subdev_format *format);
 static int daxc02_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
-static struct camera_common_pdata *daxc02_parse_dt(struct daxc02 *priv);
+static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client, struct camera_common_data *s_data);
 static int daxc02_ctrls_init(struct daxc02 *priv);
 static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *id);
 static int daxc02_remove(struct i2c_client *client);
@@ -338,7 +338,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .min            = 23 * FIXED_POINT_SCALING_FACTOR / 1000000,
         .max            = 30000 * FIXED_POINT_SCALING_FACTOR / 1000000,
         .def            = 5689 * FIXED_POINT_SCALING_FACTOR / 1000000,
-        .step           = 1,
+        .step           = 1 * FIXED_POINT_SCALING_FACTOR / 1000000,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -349,7 +349,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .min            = 1 * FIXED_POINT_SCALING_FACTOR,
         .max            = 60 * FIXED_POINT_SCALING_FACTOR,
         .def            = 30 * FIXED_POINT_SCALING_FACTOR,
-        .step           = 1,
+        .step           = 1 * FIXED_POINT_SCALING_FACTOR,
     },
     {
         .ops            = &daxc02_ctrl_ops,
@@ -457,7 +457,7 @@ static int daxc02_power_on(struct camera_common_data *s_data)
     int ret = 0;
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
-    struct i2c_client *client = s_data->i2c_client;
+    struct i2c_client *client = priv->i2c_client;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
@@ -531,7 +531,7 @@ static int daxc02_power_off(struct camera_common_data *s_data)
     return 0;
 }
 
-/** daxc02_power_put - Registers needed voltage regulators.
+/** daxc02_power_get - Registers needed voltage regulators.
  * @priv: Dax-C02 private data structure.
  */
 static int daxc02_power_get(struct daxc02 *priv)
@@ -585,32 +585,6 @@ static int daxc02_power_get(struct daxc02 *priv)
     pw->state = SWITCH_OFF;
     return ret;
 }
-
-/** daxc02_power_put - Frees the voltage regulators.
- * @priv: Dax-C02 private data structure.
- */
-static int daxc02_power_put(struct daxc02 *priv)
-{
-    struct camera_common_power_rail *pw = &priv->power;
-    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
-
-    if(unlikely(!pw)) return -EFAULT;
-
-    if(likely(pw->iovdd)) regulator_put(pw->iovdd);
-
-    if(likely(pw->avdd)) regulator_put(pw->avdd);
-
-    if(likely(pw->dvdd)) regulator_put(pw->dvdd);
-
-    pw->avdd = NULL;
-    pw->iovdd = NULL;
-    pw->dvdd = NULL;
-
-    if(pw->reset_gpio) gpio_free(pw->reset_gpio);
-
-    return 0;
-}
-
 
 /***************************************************
         MT9M021 Helper Functions
@@ -1058,10 +1032,9 @@ static struct of_device_id daxc02_of_match[] = {
 /** daxc02_parse_dt - Parses the device tree to load camera common data.
  * @client: pointer to the i2c client.
  */
-static struct camera_common_pdata *daxc02_parse_dt(struct daxc02 *priv)
+static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client, struct camera_common_data *s_data)
 {
     const struct of_device_id *match;
-    struct i2c_client *client = priv->i2c_client;
     struct device_node *node = client->dev.of_node;
     struct camera_common_pdata *board_priv_pdata;
     int gpio;
@@ -1252,7 +1225,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     priv->subdev->dev           = &client->dev;
     priv->s_data->dev           = &client->dev;
 
-    priv->pdata = daxc02_parse_dt(priv);
+    priv->pdata = daxc02_parse_dt(client, s_data);
     if(PTR_ERR(priv->pdata) == -EPROBE_DEFER) return -EPROBE_DEFER;
     else if (!priv->pdata)
     {
@@ -1317,8 +1290,8 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
  */
 static int daxc02_remove(struct i2c_client *client)
 {
-    struct camera_common_data *common_data = to_camera_common_data(client);
-    struct daxc02 *priv = (struct daxc02 *)common_data->priv;
+    struct camera_common_data *s_data = to_camera_common_data(client);
+    struct daxc02 *priv = (struct daxc02 *)s_data->priv;
 
     dev_dbg(&client->dev, "%s\n", __func__);
 
@@ -1329,8 +1302,7 @@ static int daxc02_remove(struct i2c_client *client)
     #endif
 
     v4l2_ctrl_handler_free(&priv->ctrl_handler);
-    daxc02_power_put(priv);
-    camera_common_remove_debugfs(common_data);
+    camera_common_remove_debugfs(s_data);
 
     return 0;
 }

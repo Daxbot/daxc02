@@ -13,6 +13,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define DAXC02_RST_A  TEGRA_MAIN_GPIO(R, 5)
+#define DAXC02_RST_C  TEGRA_MAIN_GPIO(R, 1)
+
 /*
 I2C Busses:
 
@@ -28,164 +31,12 @@ i2c8 = "/i2c@31e0000";
 */
 
 / {
-    i2c@c240000 {
-        status = "okay";
-        #address-cells = <1>;
-        #size-cells = <0>;
-
-        daxc02_c@10 {
-            compatible = "nova,daxc02";
-
-            /* I2C device address */
-            reg = <0x10>;
-
-            /* Device */
-            devnode = "video1";
-
-            /* Physical dimensions of sensor */
-            physical_w = "4.8";
-            physical_h = "3.6";
-
-            /* Sensor Model */
-            sensor_model ="mt9m021";
-
-            /* Define any required hw resources needed by driver */
-            vana-supply = <&en_vdd_cam_hv_2v8>;     // analog 2.8v
-            vif-supply = <&en_vdd_cam>;             // interface 1.8v
-            vdig-supply = <&en_vdd_cam_1v2>;        // digital 1.2v
-
-            reset-gpios = <&tegra_main_gpio TEGRA_MAIN_GPIO(R, 1) GPIO_ACTIVE_HIGH>;
-
-            clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH1>;
-            clock-names = "cam_mclk1";
-            clock-frequency = <24000000>;
-            mclk = "cam_mclk1";
-
-            avdd-reg = "vana";
-            iovdd-reg = "vif";
-            dvdd-reg = "vdig";
-
-            mode0 {
-                mclk_khz = "24000";
-                num_lanes = "1";
-                tegra_sinterface = "serial_c";
-                discontinuous_clk = "yes";
-                dpcm_enable = "false";
-                cil_settletime = "0";
-
-                active_w = "1280";
-                active_h = "720";
-                pixel_t = "bayer_rggb12";
-                readout_orientation = "0";
-                line_length = "1650";
-                inherent_gain = "1";
-                mclk_multiplier = "3.09375";
-                pix_clk_hz = "74250000";
-
-                min_gain_val = "1";
-                max_gain_val = "224";
-                min_hdr_ratio = "";
-                max_hdr_ratio = "";
-                min_framerate = "1";
-                max_framerate = "60";
-                min_exp_time = "34";
-                max_exp_time = "550385";
-                embedded_metadata_height = "0";
-            };
-            ports {
-                #address-cells = <0x1>;
-                #size-cells = <0x0>;
-
-                port@0 {
-                    reg = <0x0>;
-                    daxc02_out1: endpoint {
-                        csi-port = <0x2>;
-                        bus-width = <0x1>;
-                        remote-endpoint = <&daxc02_csi_in1>;
-                    };
-                };
-            };
-        };
-    };
-
-    i2c@3180000 {
-        status = "okay";
-        #address-cells = <1>;
-        #size-cells = <0>;
-
-        daxc02_a@10 {
-            compatible = "nova,daxc02";
-
-            /* I2C device address */
-            reg = <0x10>;
-
-            /* Device */
-            devnode = "video0";
-
-            /* Physical dimensions of sensor */
-            physical_w = "4.8";
-            physical_h = "3.6";
-
-            /* Sensor Model */
-            sensor_model ="mt9m021";
-
-            /* Define any required hw resources needed by driver */
-            /* ie. clocks, io pins, power sources */
-            vana-supply = <&en_vdd_cam_hv_2v8>;     // analog 2.8v
-            vif-supply = <&en_vdd_cam>;             // interface 1.8v
-            vdig-supply = <&en_vdd_cam_1v2>;        // digital 1.2v
-
-            reset-gpios = <&tegra_main_gpio TEGRA_MAIN_GPIO(R, 5) GPIO_ACTIVE_HIGH>;
-
-            clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH1>;
-            clock-names = "cam_mclk1";
-            clock-frequency = <24000000>;
-            mclk = "cam_mclk1";
-
-            avdd-reg = "vana";
-            iovdd-reg = "vif";
-            dvdd-reg = "vdig";
-
-            mode0 {
-                mclk_khz = "24000";
-                num_lanes = "1";
-                tegra_sinterface = "serial_a";
-                discontinuous_clk = "yes";
-                dpcm_enable = "false";
-                cil_settletime = "0";
-
-                active_w = "1280";
-                active_h = "720";
-                pixel_t = "bayer_rggb12";
-                readout_orientation = "0";
-                line_length = "1650";
-                inherent_gain = "1";
-                mclk_multiplier = "3.09375";
-                pix_clk_hz = "74250000";
-
-                min_gain_val = "1";
-                max_gain_val = "224";
-                min_hdr_ratio = "";
-                max_hdr_ratio = "";
-                min_framerate = "1";
-                max_framerate = "60";
-                min_exp_time = "34";
-                max_exp_time = "550385";
-                embedded_metadata_height = "0";
-            };
-            ports {
-                #address-cells = <0x1>;
-                #size-cells = <0x0>;
-
-                port@0 {
-                    reg = <0x0>;
-                    daxc02_out0: endpoint {
-                        csi-port = <0x0>;
-                        bus-width = <0x1>;
-                        remote-endpoint = <&daxc02_csi_in0>;
-                    };
-                };
-            };
+    gpio@2200000 {
+        daxc02_reset {
+            gpio-hog;
+            output-low;
+            gpios = <DAXC02_RST_A 0 DAXC02_RST_C 0>;
+            label = "daxc02_rst_a", "daxc02_rst_c";
         };
     };
 
@@ -269,6 +120,377 @@ i2c8 = "/i2c@31e0000";
         };
     };
 
+    i2c@c240000 {
+        status = "okay";
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        daxc02_c@10 {
+            compatible = "novadynamics,daxc02";
+
+            /* I2C device address */
+            reg = <0x10>;
+
+            /* Device */
+            devnode = "video1";
+
+            /* Physical dimensions of sensor */
+            physical_w = "4.8";
+            physical_h = "3.6";
+
+            /* Define any required hw resources needed by driver */
+            vana-supply = <&en_vdd_cam_hv_2v8>;     // analog 2.8v
+            vif-supply = <&en_vdd_cam>;             // interface 1.8v
+            vdig-supply = <&en_vdd_cam_1v2>;        // digital 1.2v
+
+            reset-gpios = <&tegra_main_gpio DAXC02_RST_C GPIO_ACTIVE_LOW>;
+
+            clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH1>;
+            clock-names = "cam_mclk1";
+            clock-frequency = <24000000>;
+            mclk = "cam_mclk1";
+
+            avdd-reg = "vana";
+            iovdd-reg = "vif";
+            dvdd-reg = "vdig";
+
+            /* Optional settings */
+            sensor_model ="mt9m021";
+            post_crop_frame_drop = "0";
+            use_decibel_gain = "false";
+            delayed_gain = "false";
+            use_sensor_mode_id = "false";
+
+            mode0 {
+                /* 1280x720, 30 FPS */
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_c";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "720";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "30";
+                min_exp_time = "23";
+                max_exp_time = "17299";
+                embedded_metadata_height = "0";
+            };
+            mode1 {
+                /* 1280x960, 30 FPS */
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_c";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "960";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "30";
+                min_exp_time = "23";
+                max_exp_time = "11969";
+                embedded_metadata_height = "0";
+            };
+            mode2 {
+                /* 1280x580, 30 FPS*/
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_c";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "580";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "30";
+                min_exp_time = "23";
+                max_exp_time = "20408";
+                embedded_metadata_height = "0";
+            };
+            mode3 {
+                /* 1280x580, 60 FPS*/
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_c";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "580";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "60";
+                min_exp_time = "23";
+                max_exp_time = "3742";
+                embedded_metadata_height = "0";
+            };
+            ports {
+                #address-cells = <0x1>;
+                #size-cells = <0x0>;
+
+                port@0 {
+                    reg = <0x0>;
+                    daxc02_out1: endpoint {
+                        csi-port = <0x2>;
+                        bus-width = <0x1>;
+                        remote-endpoint = <&daxc02_csi_in1>;
+                    };
+                };
+            };
+        };
+    };
+
+    i2c@3180000 {
+        status = "okay";
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        daxc02_a@10 {
+            compatible = "novadynamics,daxc02";
+
+            /* I2C device address */
+            reg = <0x10>;
+
+            /* Device */
+            devnode = "video0";
+
+            /* Physical dimensions of sensor */
+            physical_w = "4.8";
+            physical_h = "3.6";
+
+            /* Define any required hw resources needed by driver */
+            /* ie. clocks, io pins, power sources */
+            vana-supply = <&en_vdd_cam_hv_2v8>;     // analog 2.8v
+            vif-supply = <&en_vdd_cam>;             // interface 1.8v
+            vdig-supply = <&en_vdd_cam_1v2>;        // digital 1.2v
+
+            reset-gpios = <&tegra_main_gpio DAXC02_RST_A GPIO_ACTIVE_LOW>;
+
+            clocks = <&tegra_car TEGRA186_CLK_EXTPERIPH1>;
+            clock-names = "cam_mclk1";
+            clock-frequency = <24000000>;
+            mclk = "cam_mclk1";
+
+            avdd-reg = "vana";
+            iovdd-reg = "vif";
+            dvdd-reg = "vdig";
+
+            /* Optional settings */
+            sensor_model ="mt9m021";
+            post_crop_frame_drop = "0";
+            use_decibel_gain = "false";
+            delayed_gain = "false";
+            use_sensor_mode_id = "false";
+
+            mode0 {
+                /* 1280x720, 30 FPS */
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_a";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "720";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "30";
+                min_exp_time = "23";
+                max_exp_time = "17299";
+                embedded_metadata_height = "0";
+            };
+            mode1 {
+                /* 1280x960, 30 FPS */
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_a";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "960";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "30";
+                min_exp_time = "23";
+                max_exp_time = "11969";
+                embedded_metadata_height = "0";
+            };
+            mode2 {
+                /* 1280x580, 30 FPS*/
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_a";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "580";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "30";
+                min_exp_time = "23";
+                max_exp_time = "20408";
+                embedded_metadata_height = "0";
+            };
+            mode3 {
+                /* 1280x580, 60 FPS*/
+                mclk_khz = "24000";
+                num_lanes = "1";
+                tegra_sinterface = "serial_a";
+                discontinuous_clk = "yes";
+                dpcm_enable = "false";
+                cil_settletime = "0";
+
+                dynamic_pixel_bit_depth = "12";
+                csi_pixel_bit_depth = "12";
+                mode_type = "bayer";
+                pixel_phase = "rggb";
+
+                active_w = "1280";
+                active_h = "580";
+                readout_orientation = "0";
+                line_length = "1650";
+                inherent_gain = "1";
+                mclk_multiplier = "3.09375";
+                pix_clk_hz = "74250000";
+
+                min_gain_val = "1.0";
+                max_gain_val = "7.97";
+                min_hdr_ratio = "";
+                max_hdr_ratio = "";
+                min_framerate = "1";
+                max_framerate = "60";
+                min_exp_time = "23";
+                max_exp_time = "3742";
+                embedded_metadata_height = "0";
+            };
+            ports {
+                #address-cells = <0x1>;
+                #size-cells = <0x0>;
+
+                port@0 {
+                    reg = <0x0>;
+                    daxc02_out0: endpoint {
+                        csi-port = <0x0>;
+                        bus-width = <0x1>;
+                        remote-endpoint = <&daxc02_csi_in0>;
+                    };
+                };
+            };
+        };
+    };
+
     tegra-camera-platform {
         compatible = "nvidia, tegra-camera-platform";
 
@@ -304,8 +526,6 @@ i2c8 = "/i2c@31e0000";
 		min_bits_per_pixel = <12>;
 		vi_peak_byte_per_pixel = <2>;
 		vi_bw_margin_pct = <25>;
-
-		max_pixel_rate = <750000>;
 		isp_peak_byte_per_pixel = <2>;
 		isp_bw_margin_pct = <25>;
 
@@ -324,7 +544,7 @@ i2c8 = "/i2c@31e0000";
             };
             module1 {
                 badge = "daxc02_slave_mt9m021";
-                position = "rear";
+                position = "front";
                 orientation = "1";
                 status = "okay";
                 drivernode0 {
