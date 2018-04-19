@@ -10,7 +10,7 @@ Status on Jetson TX1:
 * Fully working under l4t-24.2 (see releases)
 
 Status on Jetson TX2:
-* Unknown, needs testing
+* Fully working under l4t-28.1 (master)
 
 ## Table of Contents
 

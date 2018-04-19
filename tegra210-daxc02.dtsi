@@ -558,8 +558,8 @@ i2c6 = "/host1x/i2c@546c0000";
         modules {
             module0 {
                 badge = "daxc02_master_mt9m021";
-                position = "front";
-                orientation = "1";
+                position = "rear";
+                orientation = "0";
                 status = "okay";
                 drivernode0 {
                     pcl_id = "v4l2_sensor";
@@ -570,7 +570,7 @@ i2c6 = "/host1x/i2c@546c0000";
             };
             module1 {
                 badge = "daxc02_slave_mt9m021";
-                position = "rear";
+                position = "front";
                 orientation = "1";
                 status = "okay";
                 drivernode0 {
