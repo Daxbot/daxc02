@@ -24,8 +24,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define DEBUG
-
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -208,23 +206,23 @@ static int daxc02_s_ctrl(struct v4l2_ctrl *ctrl)
 
     switch (ctrl->id)
     {
-        case V4L2_CID_GAIN:
-            dev_dbg(&client->dev, "%s: V4L2_CID_GAIN (0x%x) - %lld\n", __func__, ctrl->id, *ctrl->p_new.p_s64);
+        case TEGRA_CAMERA_CID_GAIN:
+            dev_dbg(&client->dev, "%s: TEGRA_CAMERA_CID_GAIN (0x%x) - %lld\n", __func__, ctrl->id, *ctrl->p_new.p_s64);
             ret = mt9m021_set_gain(priv, *ctrl->p_new.p_s64);
             break;
-        case V4L2_CID_EXPOSURE:
-            dev_dbg(&client->dev, "%s: V4L2_CID_EXPOSURE (0x%x) - %lld\n", __func__, ctrl->id, *ctrl->p_new.p_s64);
+        case TEGRA_CAMERA_CID_EXPOSURE:
+            dev_dbg(&client->dev, "%s: TEGRA_CAMERA_CID_EXPOSURE (0x%x) - %lld\n", __func__, ctrl->id, *ctrl->p_new.p_s64);
             ret = mt9m021_set_exposure(priv, *ctrl->p_new.p_s64);
             break;
-        case V4L2_CID_FRAME_RATE:
-            dev_dbg(&client->dev, "%s: V4L2_CID_FRAME_RATE (0x%x) - %lld\n", __func__, ctrl->id, *ctrl->p_new.p_s64);
+        case TEGRA_CAMERA_CID_FRAME_RATE:
+            dev_dbg(&client->dev, "%s: TEGRA_CAMERA_CID_FRAME_RATE (0x%x) - %lld\n", __func__, ctrl->id, *ctrl->p_new.p_s64);
             ret = mt9m021_set_frame_rate(priv, *ctrl->p_new.p_s64);
             break;
-        case V4L2_CID_HDR_EN:
-            dev_dbg(&client->dev, "%s: V4L2_CID_HDR_EN (0x%x) - %d\n", __func__, ctrl->id, ctrl->val);
+        case TEGRA_CAMERA_CID_HDR_EN:
+            dev_dbg(&client->dev, "%s: TEGRA_CAMERA_CID_HDR_EN (0x%x) - %d\n", __func__, ctrl->id, ctrl->val);
             break;
-        case V4L2_CID_GROUP_HOLD:
-            dev_dbg(&client->dev, "%s: V4L2_CID_GROUP_HOLD (0x%x) - %d\n", __func__, ctrl->id, ctrl->val);
+        case TEGRA_CAMERA_CID_GROUP_HOLD:
+            dev_dbg(&client->dev, "%s: TEGRA_CAMERA_CID_GROUP_HOLD (0x%x) - %d\n", __func__, ctrl->id, ctrl->val);
             break;
         case V4L2_CID_ANALOGUE_GAIN:
             dev_dbg(&client->dev, "%s: V4L2_CID_ANALOGUE_GAIN (0x%x) - %d\n", __func__, ctrl->id, ctrl->val);
@@ -320,7 +318,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     /* NVIDIA controls */
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_GAIN,
+        .id             = TEGRA_CAMERA_CID_GAIN,
         .name           = "Gain",
         .type           = V4L2_CTRL_TYPE_INTEGER64,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
@@ -331,7 +329,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_EXPOSURE,
+        .id             = TEGRA_CAMERA_CID_EXPOSURE,
         .name           = "Exposure",
         .type           = V4L2_CTRL_TYPE_INTEGER64,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
@@ -342,7 +340,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_FRAME_RATE,
+        .id             = TEGRA_CAMERA_CID_FRAME_RATE,
         .name           = "Frame Rate",
         .type           = V4L2_CTRL_TYPE_INTEGER64,
         .flags          = V4L2_CTRL_FLAG_SLIDER,
@@ -353,7 +351,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
     },
     {
         .ops            = &daxc02_ctrl_ops,
-        .id             = V4L2_CID_HDR_EN,
+        .id             = TEGRA_CAMERA_CID_HDR_EN,
         .name           = "HDR enable",
         .type           = V4L2_CTRL_TYPE_INTEGER_MENU,
         .min            = 0,
@@ -363,16 +361,16 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .qmenu_int      = switch_ctrl_qmenu,
     },
     {
-		.ops            = &daxc02_ctrl_ops,
-		.id             = V4L2_CID_GROUP_HOLD,
-		.name           = "Group Hold",
-		.type           = V4L2_CTRL_TYPE_INTEGER_MENU,
-		.min            = 0,
-		.max            = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
-		.menu_skip_mask = 0,
-		.def            = 0,
-		.qmenu_int      = switch_ctrl_qmenu,
-	},
+        .ops            = &daxc02_ctrl_ops,
+        .id             = TEGRA_CAMERA_CID_GROUP_HOLD,
+        .name           = "Group Hold",
+        .type           = V4L2_CTRL_TYPE_INTEGER_MENU,
+        .min            = 0,
+        .max            = ARRAY_SIZE(switch_ctrl_qmenu) - 1,
+        .menu_skip_mask = 0,
+        .def            = 0,
+        .qmenu_int      = switch_ctrl_qmenu,
+    },
 
     /* Other MT9M021 controls */
     {
@@ -538,48 +536,49 @@ static int daxc02_power_get(struct daxc02 *priv)
 {
     struct camera_common_power_rail *pw = &priv->power;
     struct camera_common_pdata *pdata = priv->pdata;
+    struct i2c_client *client = priv->i2c_client;
     const char *mclk_name;
     const char *parentclk_name;
     struct clk *parent;
     int ret = 0;
 
-    dev_dbg(&priv->i2c_client->dev, "%s\n", __func__);
+    dev_dbg(&client->dev, "%s\n", __func__);
 
     if (!pdata)
     {
-        dev_err(&priv->i2c_client->dev, "pdata missing\n");
+        dev_err(&client->dev, "pdata missing\n");
         return -EFAULT;
     }
 
     mclk_name = pdata->mclk_name ? pdata->mclk_name : "cam_mclk1";
-    pw->mclk = devm_clk_get(&priv->i2c_client->dev, mclk_name);
+    pw->mclk = devm_clk_get(&client->dev, mclk_name);
     if(IS_ERR(pw->mclk))
     {
-        dev_err(&priv->i2c_client->dev, "unable to get clock %s\n", mclk_name);
+        dev_err(&client->dev, "unable to get clock %s\n", mclk_name);
         return PTR_ERR(pw->mclk);
     }
 
     parentclk_name = pdata->parentclk_name;
     if (parentclk_name)
     {
-        parent = devm_clk_get(&priv->i2c_client->dev, parentclk_name);
-        if(IS_ERR(parent)) dev_err(&priv->i2c_client->dev, "unable to get parent clock %s", parentclk_name);
+        parent = devm_clk_get(&client->dev, parentclk_name);
+        if(IS_ERR(parent)) dev_err(&client->dev, "unable to get parent clock %s", parentclk_name);
         else clk_set_parent(pw->mclk, parent);
     }
 
     /* 1.2v */
-    ret |= camera_common_regulator_get(priv->i2c_client, &pw->dvdd, pdata->regulators.dvdd);
+    ret |= camera_common_regulator_get(&client->dev, &pw->dvdd, pdata->regulators.dvdd);
     /* analog 2.8v */
-    ret |= camera_common_regulator_get(priv->i2c_client, &pw->avdd, pdata->regulators.avdd);
+    ret |= camera_common_regulator_get(&client->dev, &pw->avdd, pdata->regulators.avdd);
     /* IO 1.8v */
-    ret |= camera_common_regulator_get(priv->i2c_client, &pw->iovdd, pdata->regulators.iovdd);
+    ret |= camera_common_regulator_get(&client->dev, &pw->iovdd, pdata->regulators.iovdd);
 
     if(!ret)
     {
         pw->reset_gpio = pdata->reset_gpio;
 
         ret = gpio_request(pw->reset_gpio, "daxc02_reset");
-        if(ret < 0) dev_err(&priv->i2c_client->dev, "%s: can't request reset_gpio %d\n", __func__, ret);
+        if(ret < 0) dev_err(&client->dev, "%s: can't request reset_gpio %d\n", __func__, ret);
     }
 
     pw->state = SWITCH_OFF;
@@ -748,13 +747,15 @@ static int mt9m021_set_gain(struct daxc02 *priv, int64_t value)
  */
 static int mt9m021_set_exposure(struct daxc02 *priv, int64_t value)
 {
-    struct camera_common_mode_info *mode = priv->pdata->mode_info;
     struct camera_common_data *s_data = priv->s_data;
+
+    const struct sensor_mode_properties *mode =
+        &s_data->sensor_props.sensor_modes[s_data->mode];
 
     int64_t coarse_time64 = 
         value *
-        mode[s_data->mode].pixel_clock /
-        mode[s_data->mode].line_length / 
+        mode->signal_properties.pixel_clock.val /
+        mode->image_properties.line_length / 
         FIXED_POINT_SCALING_FACTOR;
     
     priv->coarse_time = (uint16_t)(coarse_time64);
@@ -769,16 +770,18 @@ static int mt9m021_set_exposure(struct daxc02 *priv, int64_t value)
  */
 static int mt9m021_set_frame_rate(struct daxc02 *priv, int64_t value)
 {
-    struct camera_common_mode_info *mode = priv->pdata->mode_info;
     struct camera_common_data *s_data = priv->s_data;
 
+    const struct sensor_mode_properties *mode =
+        &s_data->sensor_props.sensor_modes[s_data->mode];
+
     int64_t frame_length64 = 
-        mode[s_data->mode].pixel_clock *
+        mode->signal_properties.pixel_clock.val *
         FIXED_POINT_SCALING_FACTOR /
         value;
 
-    frame_length64 -= (mode[s_data->mode].width + 12);
-    frame_length64 /= mode[s_data->mode].line_length;
+    frame_length64 -= (mode->image_properties.width + 12);
+    frame_length64 /= mode->image_properties.line_length;
 
     priv->frame_length = (uint16_t)(frame_length64 - 1);
 
@@ -830,7 +833,7 @@ static int mt9m021_set_flash(struct i2c_client *client, enum v4l2_flash_led_mode
 static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct camera_common_data *s_data = to_camera_common_data(client);
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct v4l2_ext_controls ctrls;
     struct v4l2_ext_control control[3];
@@ -869,13 +872,13 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
     if(s_data->override_enable)
     {
         memset(&ctrls, 0, sizeof(ctrls));
-        ctrls.ctrl_class = V4L2_CTRL_ID2CLASS(V4L2_CID_GAIN);
+        ctrls.ctrl_class = V4L2_CTRL_ID2CLASS(TEGRA_CAMERA_CID_GAIN);
         ctrls.count = 3;
         ctrls.controls = control;
 
-        control[0].id = V4L2_CID_GAIN;
-        control[1].id = V4L2_CID_FRAME_RATE;
-        control[2].id = V4L2_CID_EXPOSURE;
+        control[0].id = TEGRA_CAMERA_CID_GAIN;
+        control[1].id = TEGRA_CAMERA_CID_FRAME_RATE;
+        control[2].id = TEGRA_CAMERA_CID_EXPOSURE;
 
         ret = v4l2_g_ext_ctrls(&priv->ctrl_handler, &ctrls);
         if(ret == 0)
@@ -906,7 +909,7 @@ static int mt9m021_s_stream(struct v4l2_subdev *sd, int enable)
 static int daxc02_g_input_status(struct v4l2_subdev *sd, uint32_t *status)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct camera_common_data *s_data = to_camera_common_data(client);
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
     struct camera_common_power_rail *pw = &priv->power;
 
@@ -1058,20 +1061,6 @@ static struct camera_common_pdata *daxc02_parse_dt(struct i2c_client *client, st
 
     if(!board_priv_pdata) return NULL;
 
-    ret = camera_common_parse_clocks(client, board_priv_pdata);
-    if(ret)
-    {
-        dev_err(&client->dev, "Failed to find clocks\n");
-        goto error;
-    }
-
-    ret = camera_common_parse_sensor_mode(client, board_priv_pdata);
-    if(ret)
-    {
-        dev_err(&client->dev, "Failed to load mode info\n");
-        goto error;
-    }
-
     gpio = of_get_named_gpio(node, "reset-gpios", 0);
     if(gpio == -EPROBE_DEFER)
     {
@@ -1184,7 +1173,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     struct camera_common_data *s_data;
     struct device_node *node = client->dev.of_node;
     struct daxc02 *priv;
-    char debugfs_name[10];
     uint16_t reg16;
     int ret;
 
@@ -1204,7 +1192,6 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
 
     s_data->ops                 = &daxc02_common_ops;
     s_data->ctrl_handler        = &priv->ctrl_handler;
-    s_data->i2c_client          = client;
     s_data->frmfmt              = daxc02_frmfmt;
     s_data->colorfmt            = camera_common_find_datafmt(MEDIA_BUS_FMT_SRGGB12_1X12);
     s_data->power               = &priv->power;
@@ -1247,14 +1234,12 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
     }
     else dev_info(&client->dev, "Aptina MT9M021 detected!\n");
 
-    ret = camera_common_parse_ports(client, s_data);
+    ret = camera_common_initialize(s_data, "daxc02");
     if(ret)
     {
-        dev_err(&client->dev, "Failed to find port info\n");
+        dev_err(&client->dev, "Failed to initialize camera common.\n");
         return ret;
     }
-    sprintf(debugfs_name, "daxc02_%c", s_data->csi_port + 'a');
-    camera_common_create_debugfs(s_data, debugfs_name);
 
     v4l2_i2c_subdev_init(priv->subdev, client, &daxc02_subdev_ops);
 
@@ -1290,7 +1275,7 @@ static int daxc02_probe(struct i2c_client *client, const struct i2c_device_id *i
  */
 static int daxc02_remove(struct i2c_client *client)
 {
-    struct camera_common_data *s_data = to_camera_common_data(client);
+    struct camera_common_data *s_data = to_camera_common_data(&client->dev);
     struct daxc02 *priv = (struct daxc02 *)s_data->priv;
 
     dev_dbg(&client->dev, "%s\n", __func__);
@@ -1302,7 +1287,7 @@ static int daxc02_remove(struct i2c_client *client)
     #endif
 
     v4l2_ctrl_handler_free(&priv->ctrl_handler);
-    camera_common_remove_debugfs(s_data);
+    camera_common_cleanup(s_data);
 
     return 0;
 }

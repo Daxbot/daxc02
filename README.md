@@ -6,11 +6,13 @@ DAX-C02 is an addon board for the Nvidia Jetson TX1 and TX2 Development Boards t
 The Linux for Tegra driver is provided publicly on GitHub to anyone with or without purchase of the DAX-C02 system.  The driver is based on the Nvidia OV5693 sample driver modified to control the LI-M021C-MIPI. The driver abstracts independent control of the CMOS sensors and is made to work directly with the TX1 and TX2 integrated image processing system.  Interfacing with the driver should be handled using Nvidia’s tools. Other V4L2 tools may work, but are not officially supported.
 
 Status on Jetson TX1:
-* Fully working under l4t-28.1 (master)
+* Fully working under l4t-28.2 (master)
+* Fully working under l4t-28.1 (see releases)
 * Fully working under l4t-24.2 (see releases)
 
 Status on Jetson TX2:
-* Fully working under l4t-28.1 (master)
+* Fully working under l4t-28.2 (master)
+* Fully working under l4t-28.1 (see releases)
 
 ## Table of Contents
 
@@ -28,12 +30,12 @@ This section will describe the process of setting up the development environment
 
 First download Jetpack and make the file executable
 
-    chmod +x JetPack-L4T-3.1-linux-x64.run
+    chmod +x JetPack-L4T-3.2-linux-x64_b196.run
 
 Next transfer the installer to its own folder.
 
-    mkdir ~/l4t_r28.1
-    mv JetPack-L4T-3.1-linux-x64.run ~/l4t_r28.1/
+    mkdir ~/l4t_r28.2
+    mv JetPack-L4T-3.2-linux-x64_b196.run ~/l4t_r28.2/
 
 Export ```$DEVDIR``` as the new JetPack location.
 
@@ -57,12 +59,12 @@ Install using the following commands:
 
 Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
 
-    cd $DEVDIR/64_TX1/Linux_for_Tegra_64_tx1/
-    ./source_sync.sh -k tegra-l4t-r28.1
+    cd $DEVDIR/64_TX1/Linux_for_Tegra/
+    ./source_sync.sh -k tegra-l4t-r28.2
 
 Export ```$SOURCEDIR``` as the sources directory created by ```source_sync.sh```.
 
-    export SOURCEDIR=$DEVDIR/64_TX1/Linux_for_Tegra_64_tx1/sources
+    export SOURCEDIR=$DEVDIR/64_TX1/Linux_for_Tegra/sources
 
 Clone the driver repository to the sources directory.
 
@@ -85,12 +87,12 @@ Create symbolic links to the new files and insert them into the kernel.
 
 Download the kernel source code by running the source_sync script.  This will take a few minutes.  Specify which version using the -k tag.
 
-    cd $DEVDIR/64_TX2/Linux_for_Tegra_tx2/
-    ./source_sync.sh -k tegra-l4t-r28.1
+    cd $DEVDIR/64_TX2/Linux_for_Tegra/
+    ./source_sync.sh -k tegra-l4t-r28.2
 
 Export ```$SOURCEDIR``` as the sources directory created by ```source_sync.sh```.
 
-    export SOURCEDIR=$DEVDIR/64_TX2/Linux_for_Tegra_tx2/sources
+    export SOURCEDIR=$DEVDIR/64_TX2/Linux_for_Tegra/sources
 
 Clone the driver repository to the sources directory.
 
