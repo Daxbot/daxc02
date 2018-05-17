@@ -57,39 +57,39 @@ struct daxc02_mipi_settings {
     uint32_t data;
 };
 
-const struct daxc02_mipi_settings daxc02_single_lane[] = {
+const struct daxc02_mipi_settings daxc02_buffer_config[] = {
     {2, 0x0004, 0x0004}, // parallel port disable
     {2, 0x0002, 0x0001}, // reset 1
     {2, 0x0002, 0x0000}, // reset 0
-    {2, 0x0016, 0x50F9}, // set the input and feedback frequency division ratio
+    {2, 0x0016, 0x3095}, // set the input and feedback frequency division ratio
     {2, 0x0018, 0x0213}, // 50% maximum loop bandwidth + PLL clock enable + normal operation + PLL enable
 
-    {2, 0x0006, 0x0030}, // FIFO level 3
+    {2, 0x0006, 0x01C2}, // FIFO level
     {2, 0x0008, 0x0020}, // data format RAW12
     {2, 0x0022, 0x0780}, // word count (bytes per line)
 
     {4, 0x0140, 0x00000000}, // clock lane enable
     {4, 0x0144, 0x00000000}, // data lane 0 enable
-    {4, 0x0148, 0x00000001}, // data lane 1 disable
+    {4, 0x0148, 0x00000000}, // data lane 1 disable
     {4, 0x014C, 0x00000001}, // data lane 2 disable
     {4, 0x0150, 0x00000001}, // data lane 3 disable
 
     {4, 0x0210, 0x00002C00}, // line intialization wait counter
     {4, 0x0214, 0x00000005}, // timing generation counter
-    {4, 0x0218, 0x00001E06}, // clock header counter
-    {4, 0x021C, 0x00000004}, // clock trail counter
-    {4, 0x0220, 0x00000406}, // data header counter
+    {4, 0x0218, 0x00002004}, // clock header counter
+    {4, 0x021C, 0x00000003}, // clock trail counter
+    {4, 0x0220, 0x00000705}, // data header counter
     {4, 0x0224, 0x00004988}, // wakeup counter
-    {4, 0x0228, 0x0000000C}, // clock post counter
-    {4, 0x022C, 0x00000006}, // data trail counter
-    {4, 0x0234, 0x00000003}, // voltage regulator enable for clock data 0
+    {4, 0x0228, 0x0000000A}, // clock post counter
+    {4, 0x022C, 0x00000004}, // data trail counter
+    {4, 0x0234, 0x00000007}, // voltage regulator enable
     {4, 0x0238, 0x00000000}, // discontinuous clock mode.
     {4, 0x0204, 0x00000001}, // TX PPI start
 
     {4, 0x0518, 0x00000001}, // CSI start
-    {4, 0x0500, 0xA30080A1}, // 1 data lane
+    {4, 0x0500, 0xA30080A3}, // 2 data lanes
 
-    {2, 0x0004, 0x0044}, // increment I2C, parallel port enable, 1 csi lane
+    {2, 0x0004, 0x0045}, // increment I2C, parallel port enable, 2 csi lanes
 };
 
 /***************************************************
@@ -655,9 +655,9 @@ static int daxc02_bridge_setup(struct i2c_client *client)
     int ret;
     uint8_t i;
 
-    for(i = 0; i < ARRAY_SIZE(daxc02_single_lane); i++)
+    for(i = 0; i < ARRAY_SIZE(daxc02_buffer_config); i++)
     {
-        settings = daxc02_single_lane[i];
+        settings = daxc02_buffer_config[i];
 
         /* ADDR[15:8], ADDR[7:0] */
         buf[0] = (uint8_t)(settings.addr >> 8);
