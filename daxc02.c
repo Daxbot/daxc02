@@ -300,7 +300,7 @@ static struct v4l2_ctrl_config ctrl_config_list[] = {
         .min            = 23 * FIXED_POINT_SCALING_FACTOR / 1000000,
         .max            = 30000 * FIXED_POINT_SCALING_FACTOR / 1000000,
         .def            = 5689 * FIXED_POINT_SCALING_FACTOR / 1000000,
-        .step           = 1 * FIXED_POINT_SCALING_FACTOR / 1000000,
+        .step           = 1,
     },
     {
         .ops            = &daxc02_ctrl_ops,
